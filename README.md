@@ -78,11 +78,11 @@ platform.getBlockchains() ->
 
 Returns the list of all current validators for the Primary Network or for a specified subnet. https://docs.avax.network/reference/avalanchego/p-chain/api#platformgetcurrentvalidators
 
+  - When a blockchain team provides a `subnetId`, we can check its details and current validators.
+
   - When a validator provides a `nodeId`, we can verify if a message is signed by a corresponding private key:
       - Using `signer.publicKey` on P-Chain.
       - Using `validationRewardOwner.addresses` on C-Chain (preferrable to map with the contract caller)
-
-  - When a blockchain team provides a `subnetId`, we can check its details and current validators.
 
   - For validation checks, we can use `startTime`, `endTime`, `stakeAmount`, and `uptime`.
 
@@ -137,7 +137,7 @@ platform.getCurrentValidators({
 
 ## TODO
 
-- [ ] Implement a verification mechanism for blockchain teams to join the allowlist
-- [ ] Implement a verification for validation proof while claiming rewards
+- [ ] Verification mechanism for blockchain teams to join the allowlist for calling createPool
+- [ ] Verification mechanism for validation proof while claiming rewards
 
 
