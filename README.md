@@ -53,17 +53,38 @@ forge test
 ```
 
 ## Avalanche validation data
-Avalanche P-Chain API `platform.getcurrentvalidators` returns the list of all current validators for the Primary Network or for a specified subnet. https://docs.avax.network/reference/avalanchego/p-chain/api#platformgetcurrentvalidators
 
-Using this data from the P-Chain, we can perform off-chain computations:
+The Avalanche P-Chain manages staking and delegating across all chains in the Avalanche ecosystem. The P-Chain API can be called from any Avalanche node and provides various endpoints. They can be used for performing off-chain computations before making C-Chain contract calls. Two endpoints are particularly useful for validation:
 
-- When a validator provides a `nodeId`, we can verify if a message is signed by a corresponding private key:
-   - Using `signer.publicKey` on P-Chain.
-   - Using `validationRewardOwner.addresses` on C-Chain.
+### **`platform.getBlockchains`**
 
-- When a blockchain team provides a `subnetId`, we can check its details and current validators.
+Returns the list of all blockchains that exist (excluding the P-Chain). https://docs.avax.network/reference/avalanchego/p-chain/api#platformgetblockchains
 
-- For validation checks, we can use `startTime`, `endTime`, `stakeAmount`, and `uptime`.
+   - Use it for displaying all chains and subnets.
+
+```js
+platform.getBlockchains() ->
+{
+    blockchains: []{
+        id: string,
+        name:string,
+        subnetID: string,
+        vmID: string
+    }
+}
+```
+
+### **`platform.getcurrentvalidators`**
+
+Returns the list of all current validators for the Primary Network or for a specified subnet. https://docs.avax.network/reference/avalanchego/p-chain/api#platformgetcurrentvalidators
+
+  - When a validator provides a `nodeId`, we can verify if a message is signed by a corresponding private key:
+      - Using `signer.publicKey` on P-Chain.
+      - Using `validationRewardOwner.addresses` on C-Chain (preferrable to map with the contract caller)
+
+  - When a blockchain team provides a `subnetId`, we can check its details and current validators.
+
+  - For validation checks, we can use `startTime`, `endTime`, `stakeAmount`, and `uptime`.
 
 ```js
 platform.getCurrentValidators({
