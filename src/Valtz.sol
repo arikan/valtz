@@ -63,6 +63,15 @@ contract Valtz is Ownable {
         emit CreatorRemoved(_account, subnetID);
     }
 
+    /**
+     * @notice Creates a new staking pool
+     * @dev Only allowed creators for a specific subnet can create pools
+     * @param _token The ERC20 token used for staking and rewards
+     * @param _rewardAmount The initial amount of tokens for rewards
+     * @param _boostRate The boost rate for rewards (1-100)
+     * @param _requiredDuration The required staking duration
+     * @param _subnetID The ID of the subnet for this pool
+     */
     function createPool(
         IERC20 _token,
         uint256 _rewardAmount,
@@ -96,6 +105,12 @@ contract Valtz is Ownable {
         emit PoolCreated(poolId, msg.sender, address(_token), _rewardAmount, _boostRate, _requiredDuration, _subnetID);
     }
 
+    /**
+     * @notice Allows users to deposit tokens into a specific pool
+     * @dev Mints receipt tokens to represent the user's stake and the reward
+     * @param _poolId The ID of the pool to deposit into
+     * @param _amount The amount of tokens to deposit
+     */
     function depositToPool(uint256 _poolId, uint256 _amount) external {
         require(_poolId < poolCount, "Invalid pool ID");
         Pool storage pool = pools[_poolId];
@@ -112,6 +127,13 @@ contract Valtz is Ownable {
         emit Deposited(_poolId, msg.sender, _amount);
     }
 
+    /**
+     * @notice Allows users to claim rewards and withdraw their stake
+     * @dev Requires a valid proof of staking duration
+     * @param _poolId The ID of the pool to claim from
+     * @param _amount The amount of stake to withdraw
+     * @param _validationProof Proof of required staking duration
+     */
     function claimReward(uint256 _poolId, uint256 _amount, bytes memory _validationProof) external {
         require(_poolId < poolCount, "Invalid pool ID");
         Pool storage pool = pools[_poolId];
@@ -143,6 +165,12 @@ contract Valtz is Ownable {
         emit RewardClaimed(_poolId, msg.sender, _amount, reward);
     }
 
+    /**
+     * @notice Allows pool creators to withdraw excess rewards
+     * @dev Only the pool creator can withdraw, and only excess rewards can be withdrawn
+     * @param _poolId The ID of the pool to withdraw from
+     * @param _amount The amount of rewards to withdraw
+     */
     function withdrawReward(uint256 _poolId, uint256 _amount) external {
         require(_poolId < poolCount, "Invalid pool ID");
         Pool storage pool = pools[_poolId];
@@ -157,6 +185,12 @@ contract Valtz is Ownable {
         emit RewardWithdrawn(_poolId, msg.sender, _amount);
     }
 
+    /**
+     * @notice Allows pool creators to increase the reward balance of a pool
+     * @dev Only the pool creator can increase rewards
+     * @param _poolId The ID of the pool to increase rewards for
+     * @param _additionalReward The amount of additional rewards to add
+     */
     function increasePoolReward(uint256 _poolId, uint256 _additionalReward) external {
         require(_poolId < poolCount, "Invalid pool ID");
         Pool storage pool = pools[_poolId];
