@@ -55,20 +55,20 @@ forge test
 ## Avalanche validation data
 Avalanche P-Chain API `platform.getcurrentvalidators` returns the list of all current validators for the Primary Network or for a specified subnet. https://docs.avax.network/reference/avalanchego/p-chain/api#platformgetcurrentvalidators
 
-Using this data:
+Using this data from the P-Chain, we can perform off-chain computations:
 
 - When a validator provides a `nodeId`, we can verify if a message is signed by a corresponding private key:
    - Using `signer.publicKey` on P-Chain.
    - Using `validationRewardOwner.addresses` on C-Chain.
 
-- When a blockchain team provides a `subnetId`, we check its details and current validators.
+- When a blockchain team provides a `subnetId`, we can check its details and current validators.
 
-- For validation check, we can use `startTime`, `endTime`, `stakeAmount`, and `uptime`.
+- For validation checks, we can use `startTime`, `endTime`, `stakeAmount`, and `uptime`.
 
 ```js
 platform.getCurrentValidators({
-    subnetID: string, // optional
-    nodeIDs: string[], // optional
+    subnetID: string, // Optional. If omitted, returns the current validators of the Primary Network
+    nodeIDs: string[], // Optional. If omitted, returns all current validators. If a specified nodeID is not in the set of current validators, it is not inclunded in the response.
 }) -> {
     validators: []{
         txID: string,
