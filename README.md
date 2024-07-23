@@ -27,7 +27,7 @@ The contract in `src/Valtz.sol` consists of the following functionality:
 
 - **claimReward**: Allows users to claim rewards and withdraw their stake.
     - `_poolId` The ID of the pool to claim from
-    - `_amount` The amount of stake to withdraw
+    - `_amount` The amount of receipt/futures token (burned after transferring deposit + rewards)
     - `_validationProof` Proof of required staking duration
 
 - **withdrawReward**: Allows pool creators to withdraw excess rewards. Only the pool creator can withdraw, and only excess rewards can be withdrawn.
@@ -51,3 +51,72 @@ forge build
 ```sh
 forge test
 ```
+
+## Avalanche validation data
+Avalanche P-Chain API `platform.getcurrentvalidators` returns the list of all current validators for the Primary Network or for a specified subnet. https://docs.avax.network/reference/avalanchego/p-chain/api#platformgetcurrentvalidators
+
+Using this data:
+
+- When a validator provides a `nodeId`, we can verify if a message is signed by a corresponding private key:
+   - Using `signer.publicKey` on P-Chain.
+   - Using `validationRewardOwner.addresses` on C-Chain.
+
+- When a blockchain team provides a `subnetId`, we check its details and current validators.
+
+- For validation check, we can use `startTime`, `endTime`, `stakeAmount`, and `uptime`.
+
+```js
+platform.getCurrentValidators({
+    subnetID: string, // optional
+    nodeIDs: string[], // optional
+}) -> {
+    validators: []{
+        txID: string,
+        startTime: string,
+        endTime: string,
+        stakeAmount: string,
+        nodeID: string,
+        weight: string,
+        validationRewardOwner: {
+            locktime: string,
+            threshold: string,
+            addresses: string[]
+        },
+        delegationRewardOwner: {
+            locktime: string,
+            threshold: string,
+            addresses: string[]
+        },
+        potentialReward: string,
+        delegationFee: string,
+        uptime: string,
+        connected: bool,
+        signer: {
+            publicKey: string,
+            proofOfPosession: string
+        },
+        delegatorCount: string,
+        delegatorWeight: string,
+        delegators: []{
+            txID: string,
+            startTime: string,
+            endTime: string,
+            stakeAmount: string,
+            nodeID: string,
+            rewardOwner: {
+                locktime: string,
+                threshold: string,
+                addresses: string[]
+            },
+            potentialReward: string,
+        }
+    }
+}
+```
+
+## TODO
+
+- [ ] Implement a verification mechanism for blockchain teams to join the allowlist
+- [ ] Implement a verification for validation proof while claiming rewards
+
+

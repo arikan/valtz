@@ -131,7 +131,7 @@ contract Valtz is Ownable {
      * @notice Allows users to claim rewards and withdraw their stake
      * @dev Requires a valid proof of staking duration
      * @param _poolId The ID of the pool to claim from
-     * @param _amount The amount of stake to withdraw
+     * @param _amount The amount of receipt/futures token (burned after transferring deposit + rewards)
      * @param _validationProof Proof of required staking duration
      */
     function claimReward(uint256 _poolId, uint256 _amount, bytes memory _validationProof) external {
