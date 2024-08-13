@@ -11,7 +11,7 @@ contract ValtzDeployScript is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        Valtz valtz = new Valtz();
+        new Valtz();
 
         vm.stopBroadcast();
     }
