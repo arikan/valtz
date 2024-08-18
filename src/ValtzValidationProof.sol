@@ -1,44 +1,41 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
-contract ValtzValidationAttestation is Ownable2Step, ERC1155Burnable, AccessControl {
+contract ValtzValidationAttestation is Ownable2Step, ERC1155, AccessControl {
     error InvalidSigner();
     error InvalidSignature();
+
+    type SubnetID is uint256;
+    type ValidatorID is bytes32;
 
     struct ValidationPeriod {
         uint40 startDate;
         uint40 term;
     }
 
-    struct Validation {
-        bytes32 subnetID;
-        bytes32 validatorID;
+    struct ValidationClaim {
+        SubnetID subnetID;
+        ValidatorID validatorID;
         ValidationPeriod period;
     }
 
     struct ValidationAttestation {
-        Validation claim;
+        ValidationClaim claim;
         address signer;
     }
 
     bytes32 public constant VALIDATION_DATA_SIGNER_ROLE = keccak256("VALIDATION_DATA_SIGNER_ROLE");
 
-    mapping(bytes32 => uint256) public totalSupply;
+    mapping(SubnetID => uint256) public totalSupply;
 
-    mapping(bytes32 => mapping(bytes32 => ValidationPeriod[])) public attestedPeriods;
+    mapping(SubnetID => mapping(ValidatorID => ValidationPeriod[])) public attestedPeriods;
 
-    constructor() ERC1155("") Ownable(msg.sender) {
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    }
-
-    function setURI(string memory newuri) public onlyOwner {
-        _setURI(newuri);
-    }
+    constructor() ERC1155("") Ownable(msg.sender) {}
 
     function mint(address to, ValidationAttestation memory attestation, bytes memory signature)
         public
@@ -47,6 +44,7 @@ contract ValtzValidationAttestation is Ownable2Step, ERC1155Burnable, AccessCont
             revert InvalidSigner();
         }
 
+        // Verify the signature using SignatureChecker
         bytes32 messageHash = keccak256(abi.encode(attestation.claim));
         if (!SignatureChecker.isValidSignatureNow(attestation.signer, messageHash, signature)) {
             revert InvalidSignature();
@@ -62,7 +60,8 @@ contract ValtzValidationAttestation is Ownable2Step, ERC1155Burnable, AccessCont
         }
         periods.push(attestation.claim.period);
 
-        _mint(to, uint256(attestation.claim.subnetID), 1, "");
+        uint256 tokenId = SubnetID.unwrap(attestation.claim.subnetID);
+        _mint(to, tokenId, 1, "");
         totalSupply[attestation.claim.subnetID]++;
     }
 
