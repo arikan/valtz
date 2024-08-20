@@ -56,11 +56,11 @@ forge test
 
 The Avalanche P-Chain manages staking and delegating across all chains in the Avalanche ecosystem. The P-Chain API can be called from any Avalanche node and provides various endpoints. They can be used for performing off-chain computations before making C-Chain contract calls. Two endpoints are particularly useful for validation:
 
-### **`platform.getBlockchains`**
+### `platform.getBlockchains`
 
-Returns the list of all blockchains that exist (excluding the P-Chain). https://docs.avax.network/api-reference/p-chain/api#platformgetblockchains
+https://docs.avax.network/api-reference/p-chain/api#platformgetblockchains
 
-   - Use it for displaying all chains and subnets.
+Returns the list of all blockchains that exist (excluding the P-Chain). Can be used for displaying all chains and subnets.
 
 ```js
 platform.getBlockchains() ->
@@ -74,21 +74,10 @@ platform.getBlockchains() ->
 }
 ```
 
-### **`platform.getcurrentvalidators`**
+### `platform.getcurrentvalidators`
+https://docs.avax.network/api-reference/p-chain/api#platformgetcurrentvalidators
 
-Returns the list of all current validators of the Primary Network or a specified subnet. https://docs.avax.network/api-reference/p-chain/api#platformgetcurrentvalidators
-
-This endpoint can be used in the following ways:
-
-1. When a blockchain team provides a `subnetId`, check its details and current validators.
-
-2. Provide a user (C-chain address) a unique message to sign, then verify it using the signature + the message + the P-chain address. If verified, we know this user owns this P-chain address, then check if this address is a validationRewardOwner.
-   - `validators[i].signer.publicKey` is the node's BLS public key.
-   - `validators[i].validationRewardOwner.addresses` is the potential reward owner adress on P-chain.
-
-3. When a validator provides proof of validation, verify:
-    - `endTime` - `startTime` must be equal or greater than the comitted duration
-    - `uptime` must be over 80%
+Returns the list of all current validators of the Primary Network or a specified subnet.
 
 ```js
 platform.getCurrentValidators({
@@ -139,7 +128,29 @@ platform.getCurrentValidators({
 }
 ```
 
+### `platform.getTx`
+
+https://docs.avax.network/api-reference/p-chain/api#platformgettx
+
+Returns UTXO transaction details by its ID.
+
+### Blockchain validators and total stake
+
+For a given `subnetId`, number of current validators and total at stake can be listed using `platform.getcurrentvalidators`.
+
+### Verify validator ownership
+
+1. Provide a user (C-chain address) a unique message and ask to sign it with their P-chain address that is a rewardOwner of a validator.
+2. User signs it (in their Core wallet or via cli in their node) and provides the signature and their P-chain address.
+3. Verify using the signature, P-chain address, and the unique message. If it verifies, then we know this user (C-chain address) owns this P-chain address.
+4. Then, check if this P-chain address is a validation reward owner using the P-chain API `validators[i].validationRewardOwner.addresses` endpoint.
+
+### Verify completed validation
+
+1. For this p-chain address, retrieve its previous p-chain transactions
+2. Filter the validation transactions and get their details from `validators[i].txID` to check if they are completed validations (still need to check how)
+3. Each validations has `start` and `end`, which must be equal or greater than the comitted validation slot
+
 ## TODO
 
 - [ ] Verification mechanism for blockchain teams to join the allowlist for calling createPool
-- [ ] Verification mechanism for validation proof while claiming rewards
