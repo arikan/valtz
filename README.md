@@ -58,7 +58,7 @@ The Avalanche P-Chain manages staking and delegating across all chains in the Av
 
 ### **`platform.getBlockchains`**
 
-Returns the list of all blockchains that exist (excluding the P-Chain). https://docs.avax.network/reference/avalanchego/p-chain/api#platformgetblockchains
+Returns the list of all blockchains that exist (excluding the P-Chain). https://docs.avax.network/api-reference/p-chain/api#platformgetblockchains
 
    - Use it for displaying all chains and subnets.
 
@@ -76,15 +76,19 @@ platform.getBlockchains() ->
 
 ### **`platform.getcurrentvalidators`**
 
-Returns the list of all current validators for the Primary Network or for a specified subnet. https://docs.avax.network/reference/avalanchego/p-chain/api#platformgetcurrentvalidators
+Returns the list of all current validators of the Primary Network or a specified subnet. https://docs.avax.network/api-reference/p-chain/api#platformgetcurrentvalidators
 
-  - When a blockchain team provides a `subnetId`, we can check its details and current validators.
+This endpoint can be used in the following ways:
 
-  - When a validator provides a `nodeId`, we can verify if a message is signed by a corresponding private key:
-      - Using `signer.publicKey` on P-Chain.
-      - Using `validationRewardOwner.addresses` on C-Chain (preferrable to map with the contract caller)
+1. When a blockchain team provides a `subnetId`, check its details and current validators.
 
-  - For validation checks, we can use `startTime`, `endTime`, `stakeAmount`, and `uptime`.
+2. Provide a user (C-chain address) a unique message to sign, then verify it using the signature + the message + the P-chain address. If verified, we know this user owns this P-chain address, then check if this address is a validationRewardOwner.
+   - `validators[i].signer.publicKey` is the node's BLS public key.
+   - `validators[i].validationRewardOwner.addresses` is the potential reward owner adress on P-chain.
+
+3. When a validator provides proof of validation, verify:
+    - `endTime` - `startTime` must be equal or greater than the comitted duration
+    - `uptime` must be over 80%
 
 ```js
 platform.getCurrentValidators({
@@ -139,5 +143,3 @@ platform.getCurrentValidators({
 
 - [ ] Verification mechanism for blockchain teams to join the allowlist for calling createPool
 - [ ] Verification mechanism for validation proof while claiming rewards
-
-
