@@ -6,6 +6,7 @@ remappings = ['@openzeppelin/=lib/openzeppelin-contracts/']
 
 solc_version = '0.8.26'
 evm_version = 'cancun'
+via_ir = true
 
 [fmt]
 line_length = 100

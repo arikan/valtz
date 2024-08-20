@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
-import "./ReceiptToken.sol";
 
 contract ValtzPool is ERC20, ERC20Permit, Ownable2Step, ERC1155Holder {
     using SafeERC20 for IERC20;
@@ -26,14 +25,14 @@ contract ValtzPool is ERC20, ERC20Permit, Ownable2Step, ERC1155Holder {
         uint256 maxRedeemablePerValidationAttestation;
     }
 
-    error WithdrawAmountExceedsBalance();
+    error RedemptionAmountExceeds();
     error WithdrawDisabled();
     error InvalidValidationAttestation();
 
-    uint24 public constant PRECISION = 1e6;
+    uint24 public constant BOOST_RATE_PRECISION = 1e6;
 
     bytes32 public immutable subnetID;
-    address public immutable asset;
+    IERC20 public immutable asset;
     uint40 public immutable term;
     uint256 public immutable assetDepositsMax;
     uint24 public immutable boostRate;
@@ -48,6 +47,7 @@ contract ValtzPool is ERC20, ERC20Permit, Ownable2Step, ERC1155Holder {
         ERC20Permit(config.name)
         Ownable(msg.sender)
     {
+        asset = config.asset;
         subnetID = config.subnetID;
         term = config.term;
         assetDepositsMax = config.assetDepositsMax;
@@ -57,7 +57,7 @@ contract ValtzPool is ERC20, ERC20Permit, Ownable2Step, ERC1155Holder {
     }
 
     function _calculateBoostedAmount(uint256 amount) internal view returns (uint256) {
-        return amount + (amount * boostRate) / PRECISION;
+        return amount + (amount * boostRate) / BOOST_RATE_PRECISION;
     }
 
     function maxShares() public view returns (uint256) {
@@ -76,65 +76,38 @@ contract ValtzPool is ERC20, ERC20Permit, Ownable2Step, ERC1155Holder {
         require(startTime == 0, "Already active");
         require(_startTime >= block.timestamp, "Must either cancel or set to start in future block");
         startTime = _startTime;
-        IERC20(asset()).safeTransferFrom(msg.sender, address(this), rewardsAmount());
+        asset.safeTransferFrom(msg.sender, address(this), rewardsAmount());
     }
 
-    function maxDeposit
+    function maxDeposit() public view returns (uint256) {
+        return assetDepositsMax > assetDepositsTotal ? assetDepositsMax - assetDepositsTotal : 0;
+    }
 
-    function deposit(uint256 assets, address receiver)
-        public
-        override
-        onlyActive
-        returns (uint256)
-    {
-        require(assets <= maxDeposit(receiver), "Deposit exceeds max limit");
+    function deposit(uint256 assets, address receiver) public onlyActive returns (uint256) {
+        require(assets <= maxDeposit(), "Deposit exceeds max limit");
         assetDepositsTotal += assets;
-        IERC20(asset()).safeTransferFrom(msg.sender, address(this), assets);
+        asset.safeTransferFrom(msg.sender, address(this), assets);
         _mint(receiver, assets);
         return assets;
     }
 
-    function maxWithdraw(address owner) public view override returns (uint256) {
-        uint256 tokenId = uint256(uint160(address(this)));
-        uint256 attestationBalance = validationAttestation.balanceOf(owner, tokenId);
-        if (attestationBalance == 0) {
-            return 0;
-        }
-        uint256 maxWithdrawBasedOnShares = balanceOf(owner);
-        uint256 maxWithdrawBasedOnAttestations = attestationBalance * deposit;
-        return Math.min(maxWithdrawBasedOnShares, maxWithdrawBasedOnAttestations) * PRECISION
-            / (PRECISION + boostRate);
+    function attestationsNeededToRedeem(uint256 amount) public view returns (uint256) {
+        return Math.ceilDiv(amount, maxRedeemablePerValidationAttestation);
     }
 
-    function withdraw(uint256 assets, address receiver, address owner)
-        public
-        override
-        onlyActive
-        returns (uint256)
-    {
-        if (assets > maxWithdraw(owner)) {
-            revert WithdrawAmountExceedsBalance();
-        }
-
-        uint256 boostedAssets = _calculateBoostedAmount(assets);
-        uint256 attestationsToBurn = (boostedAssets + deposit - 1) / deposit;
-        _burnValidationAttestation(owner, attestationsToBurn);
-
-        _burn(owner, assets);
-        IERC20(asset()).safeTransfer(receiver, boostedAssets);
-
-        return assets;
-    }
-
-    function _burnValidationAttestation(address owner, uint256 amount) internal {
+    function redeem(uint256 amount, address receiver) public onlyActive returns (uint256 assets) {
         uint256 tokenId = uint256(uint160(address(this)));
 
-        if (validationAttestation.balanceOf(owner, tokenId) < amount) {
-            revert InvalidValidationAttestation();
-        }
+        uint256 attestationsNeeded = attestationsNeededToRedeem(amount);
+        validationAttestation.safeTransferFrom(
+            msg.sender, address(this), tokenId, attestationsNeeded, ""
+        );
+        validationAttestation.burn(address(this), tokenId, attestationsNeeded);
 
-        validationAttestation.safeTransferFrom(owner, address(this), tokenId, amount, "");
-        validationAttestation.burn(address(this), tokenId, amount);
+        assets = _calculateBoostedAmount(amount);
+        _burn(msg.sender, amount);
+
+        asset.safeTransfer(receiver, assets);
     }
 
     modifier onlyBeforeActive() {
@@ -149,8 +122,7 @@ contract ValtzPool is ERC20, ERC20Permit, Ownable2Step, ERC1155Holder {
     }
 
     modifier onlyAfterActive() {
-                require(block.timestamp < startTime + term, "No longer active");
+        require(block.timestamp < startTime + term, "No longer active");
         _;
-
     }
 }
