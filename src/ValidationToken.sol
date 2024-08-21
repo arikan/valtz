@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
-contract ValidationToken is Ownable2Step, ERC1155Burnable, AccessControl {
+abstract contract ValidationToken is AccessControl {
     error InvalidAttestationSigner();
     error InvalidAttestationSignature();
     error InvalidAuthorizationSigner();
@@ -20,7 +20,6 @@ contract ValidationToken is Ownable2Step, ERC1155Burnable, AccessControl {
     }
 
     struct ValidationData {
-        bytes32 subnetID;
         bytes32 validatorID;
         ValidationPeriod period;
     }
@@ -48,34 +47,28 @@ contract ValidationToken is Ownable2Step, ERC1155Burnable, AccessControl {
 
     bytes32 public constant ATTESTOR_ROLE = keccak256("ATTESTOR_ROLE");
 
-    mapping(bytes32 => uint256) public totalSupply;
+    mapping(bytes32 => ValidationPeriod[]) public attestedPeriods;
 
-    mapping(bytes32 => mapping(bytes32 => ValidationPeriod[])) public attestedPeriods;
+    // function addSigner(address signer) public onlyOwner {
+    //     _grantRole(ATTESTOR_ROLE, signer);
+    // }
 
-    constructor() ERC1155("") Ownable(msg.sender) {}
+    // function removeSigner(address signer) public onlyOwner {
+    //     _revokeRole(ATTESTOR_ROLE, signer);
+    // }
 
-    function addSigner(address signer) public onlyOwner {
-        _grantRole(ATTESTOR_ROLE, signer);
-    }
-
-    function removeSigner(address signer) public onlyOwner {
-        _revokeRole(ATTESTOR_ROLE, signer);
-    }
-
-    function setURI(string memory newuri) public onlyOwner {
-        _setURI(newuri);
-    }
+    // function setURI(string memory newuri) public onlyOwner {
+    //     _setURI(newuri);
+    // }
 
     function mint(
-        address to,
         ValidationAttestation memory attestation,
         RedemptionAuthorization memory authorization
     ) public {
         _checkAttestation(attestation);
         _checkAuthorization(authorization);
 
-        ValidationPeriod[] storage periods =
-            attestedPeriods[attestation.validation.subnetID][attestation.validation.validatorID];
+        ValidationPeriod[] storage periods = attestedPeriods[attestation.validation.validatorID];
         if (periods.length > 0) {
             ValidationPeriod storage lastPeriod = periods[periods.length - 1];
             if (lastPeriod.startDate + lastPeriod.term > attestation.validation.period.startDate) {
@@ -83,22 +76,45 @@ contract ValidationToken is Ownable2Step, ERC1155Burnable, AccessControl {
             }
         }
         periods.push(attestation.validation.period);
-
-        _mint(to, uint256(attestation.validation.subnetID), 1, "");
-        totalSupply[attestation.validation.subnetID]++;
     }
 
-    function supportsInterface(bytes4 interfaceId)
-        public
+    function _checkValidationPeriod(bytes32 validatorID, ValidationPeriod memory newPeriod)
+        internal
         view
-        virtual
-        override(ERC1155, AccessControl)
-        returns (bool)
     {
-        return super.supportsInterface(interfaceId);
-    }
+        ValidationPeriod[] storage periods = attestedPeriods[validatorID];
+        for (uint256 i = 0; i < periods.length; i++) {
+            ValidationPeriod storage period = periods[i];
+            if (
+                newPeriod.startDate > period.startDate
+                    && newPeriod.startDate < period.startDate + period.term
+            ) {
+                revert("ValidationAttestation: overlapping period");
+            }
+            if (
+                newPeriod.startDate + newPeriod.term > period.startDate
+                    && newPeriod.startDate + newPeriod.term < period.startDate + period.term
+            ) {
+                revert("ValidationAttestation: overlapping period");
+            }
+            if (
+                newPeriod.startDate <= period.startDate
+                    && newPeriod.startDate + newPeriod.term >= period.startDate + period.term
+            ) {
+                revert("ValidationAttestation: overlapping period");
+            }
 
-    // Internal
+            if (period.startDate + period.term > newPeriod.startDate) {
+                revert("ValidationAttestation: overlapping period");
+            }
+        }
+        // if (periods.length > 0) {
+        //     ValidationPeriod storage lastPeriod = periods[periods.length - 1];
+        //     if (lastPeriod.startDate + lastPeriod.term > newPeriod.startDate) {
+        //         revert("ValidationAttestation: overlapping period");
+        //     }
+        // }
+    }
 
     function _checkAttestation(ValidationAttestation memory attestation) internal view {
         if (!hasRole(ATTESTOR_ROLE, attestation.signer)) {

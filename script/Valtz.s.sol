@@ -2,16 +2,18 @@
 pragma solidity ^0.8.13;
 
 import {Script, console} from "forge-std/Script.sol";
+import {ValtzPool} from "../src/ValtzPool.sol";
 import {Valtz} from "../src/Valtz.sol";
+import {IRoleAuthority} from "../src/IRoleAuthority.sol";
 
 contract ValtzDeployScript is Script {
     function setUp() public {}
 
     function run() public {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
-        new Valtz();
+        ValtzPool impl = new ValtzPool(IRoleAuthority(address(0)));
+        new Valtz(msg.sender, address(impl));
 
         vm.stopBroadcast();
     }
