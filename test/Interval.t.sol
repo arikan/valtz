@@ -51,4 +51,35 @@ contract IntervalTest is Test {
 
         assertTrue(overlapAB == overlapBA, "Overlap should be commutative");
     }
+
+    function testContains() public pure {
+        LibInterval.Interval memory a = LibInterval.Interval(100, 50);
+
+        assertTrue(LibInterval.contains(a, 100), "Should contain start");
+        assertTrue(LibInterval.contains(a, 125), "Should contain middle");
+        assertTrue(LibInterval.contains(a, 149), "Should contain end");
+        assertFalse(LibInterval.contains(a, 99), "Should not contain before start");
+        assertFalse(LibInterval.contains(a, 150), "Should not contain at end");
+        assertFalse(LibInterval.contains(a, 151), "Should not contain after end");
+    }
+
+    function testOverlapsAny() public pure {
+        LibInterval.Interval memory a = LibInterval.Interval(100, 50);
+        LibInterval.Interval[] memory intervals = new LibInterval.Interval[](3);
+        intervals[0] = LibInterval.Interval(50, 25);
+        intervals[1] = LibInterval.Interval(200, 25);
+        intervals[2] = LibInterval.Interval(125, 50);
+
+        assertTrue(
+            LibInterval.overlapsAny(a, intervals), "Should overlap with at least one interval"
+        );
+
+        LibInterval.Interval[] memory noOverlapIntervals = new LibInterval.Interval[](2);
+        noOverlapIntervals[0] = LibInterval.Interval(50, 25);
+        noOverlapIntervals[1] = LibInterval.Interval(200, 25);
+
+        assertFalse(
+            LibInterval.overlapsAny(a, noOverlapIntervals), "Should not overlap with any interval"
+        );
+    }
 }

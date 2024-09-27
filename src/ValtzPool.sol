@@ -55,10 +55,7 @@ interface IValtzPool {
 contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable2StepUpgradeable {
     using SafeERC20 for IERC20;
     using Address for address payable;
-
-    /* /////////////////////////////////////////////////////////////////////////
-                                    ERRORS
-    ///////////////////////////////////////////////////////////////////////// */
+    using LibInterval for LibInterval.Interval;
 
     /* /////////////////////////////////////////////////////////////////////////
                                     CONSTANTS
@@ -238,20 +235,6 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         return started && (block.timestamp >= endTime());
     }
 
-    function isValidInterval(bytes32 nodeID, LibInterval.Interval memory interval)
-        public
-        view
-        returns (bool)
-    {
-        LibInterval.Interval[] storage intervals = _validatorIntervals[nodeID];
-        for (uint256 i = 0; i < intervals.length; i++) {
-            if (LibInterval.overlap(intervals[i], interval)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     function validatorIntervals(bytes32 nodeID)
         public
         view
@@ -270,12 +253,8 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         }
 
         LibInterval.Interval[] storage intervals = _validatorIntervals[nodeID];
-        for (uint256 i = 0; i < intervals.length; i++) {
-            if (LibInterval.overlap(intervals[i], interval)) {
-                revert(
-                    "ValidationAttestation: interval overlaps with previously recorded validation"
-                );
-            }
+        if (interval.overlapsAny(intervals)) {
+            revert("ValidationAttestation: interval overlaps with previously recorded validation");
         }
         intervals.push(interval);
     }

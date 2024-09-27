@@ -9,9 +9,11 @@ import "./Interval.sol";
 
 library AttestedValidation {
     using ECDSA for bytes32;
+    using LibInterval for LibInterval.Interval;
 
     error InvalidAttestationSigner();
     error InvalidAttestationSignature();
+    error InvalidAttestationTimeInterval();
 
     struct Data {
         bytes32 nodeID;
@@ -47,6 +49,9 @@ library AttestedValidation {
             !SignatureChecker.isValidSignatureNow(attestation.signer, hashed, attestation.signature)
         ) {
             revert InvalidAttestationSignature();
+        }
+        if (!attestation.data.interval.contains(uint40(block.timestamp))) {
+            revert InvalidAttestationTimeInterval();
         }
     }
 }

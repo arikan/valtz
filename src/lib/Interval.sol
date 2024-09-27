@@ -13,18 +13,24 @@ library LibInterval {
     }
 
     function overlap(Interval memory a, Interval memory b) internal pure returns (bool) {
-        if (a.start > b.start) {
-            return overlap(b, a);
-        }
+        // Check if either interval starts within the other interval
+        return (a.start <= b.start && b.start < a.start + a.term)
+            || (b.start <= a.start && a.start < b.start + b.term);
+    }
 
-        // B starts before A ends
-        if (b.start < a.start + a.term) {
-            return true;
-        }
+    function contains(Interval memory a, uint40 timestamp) internal pure returns (bool) {
+        return a.start <= timestamp && timestamp < a.start + a.term;
+    }
 
-        // A ends after B ends
-        if (a.start + a.term > b.start + b.term) {
-            return true;
+    function overlapsAny(Interval memory a, Interval[] memory intervals)
+        internal
+        pure
+        returns (bool)
+    {
+        for (uint256 i = 0; i < intervals.length; i++) {
+            if (overlap(a, intervals[i])) {
+                return true;
+            }
         }
 
         return false;
