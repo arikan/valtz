@@ -14,6 +14,7 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import "../src/ValtzConstants.sol";
 import "../src/lib/Interval.sol";
 import "../src/lib/DelegatedAuth.sol";
+import "../src/lib/AttestedValidation.sol";
 import "../src/ValtzPool.sol";
 import "../src/interfaces/IRoleAuthority.sol";
 
@@ -114,7 +115,7 @@ contract ValtzPoolTest is Test {
 
         uint256 withdrawAmount = 50 * 1e18;
 
-        IValtzPool.ValidationAttestation memory attestation = _signedValidationAttestation(
+        AttestedValidation.Validation memory validation = _signedValidationAttestation(
             pool,
             bytes32(uint256(123)),
             pChainNodeRewardSigner.addr,
@@ -130,7 +131,7 @@ contract ValtzPoolTest is Test {
             withdrawAmount + (withdrawAmount * BOOST_RATE / pool.BOOST_RATE_PRECISION());
 
         vm.prank(user1);
-        uint256 redeemedAmount = pool.redeem(withdrawAmount, user1, attestation, auth);
+        uint256 redeemedAmount = pool.redeem(withdrawAmount, user1, validation, auth);
         assertEq(redeemedAmount, expectedAmount);
 
         //     assertEq(token.balanceOf(address(pool)), depositAmount - withdrawAmount);
@@ -146,15 +147,14 @@ contract ValtzPoolTest is Test {
         address rewardOwner,
         uint40 start,
         uint40 term
-    ) internal view returns (IValtzPool.ValidationAttestation memory) {
-        IValtzPool.ValidationData memory validationData = IValtzPool.ValidationData({
+    ) internal view returns (AttestedValidation.Validation memory) {
+        AttestedValidation.Data memory data = AttestedValidation.Data({
             nodeID: nodeID,
             nodeRewardOwner: rewardOwner,
             interval: LibInterval.Interval({start: start, term: term})
         });
 
-        bytes32 structHash =
-            keccak256(abi.encode(valtzPool.VALIDATION_DATA_TYPEHASH(), validationData));
+        bytes32 structHash = keccak256(abi.encode(AttestedValidation._TYPEHASH, data));
 
         bytes32 messageHash =
             MessageHashUtils.toTypedDataHash(valtzPool.DOMAIN_SEPARATOR(), structHash);
@@ -162,8 +162,8 @@ contract ValtzPoolTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(valtzSigner.privateKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        return IValtzPool.ValidationAttestation({
-            validation: validationData,
+        return AttestedValidation.Validation({
+            data: data,
             signature: signature,
             signer: valtzSigner.addr
         });
@@ -178,7 +178,7 @@ contract ValtzPoolTest is Test {
     ) internal view returns (DelegatedAuth.SignedAuth memory signedAuth) {
         DelegatedAuth.AuthData memory authData =
             DelegatedAuth.AuthData({subject: authorized, scope: scope, start: start, term: term});
-        bytes32 structHash = keccak256(abi.encode(DelegatedAuth.AUTH_DATA_TYPEHASH, authData));
+        bytes32 structHash = keccak256(abi.encode(DelegatedAuth._TYPEHASH, authData));
         bytes32 messageHash =
             MessageHashUtils.toTypedDataHash(valtzPool.DOMAIN_SEPARATOR(), structHash);
 

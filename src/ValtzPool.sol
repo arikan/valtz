@@ -21,17 +21,21 @@ import {Ownable2StepUpgradeable} from
 import "@openzeppelin/contracts/access/manager/AccessManaged.sol";
 
 import "./lib/DelegatedAuth.sol";
+import "./lib/Interval.sol";
+import "./lib/AttestedValidation.sol";
 import "./ValtzConstants.sol";
 import "./interfaces/IRoleAuthority.sol";
-import "./lib/Interval.sol";
-import "./ValtzErrors.sol";
 import "./ValtzEvents.sol";
 
-interface IValtzPool {
-    /* /////////////////////////////////////////////////////////////////////////
-                                 STRUCT TYPES
-    ///////////////////////////////////////////////////////////////////////// */
+error UnauthorizedRedeemer();
+error InvalidAuthScope();
+error ExpiredAuthorization();
+error InvalidAttestationSigner();
+error RedemptionAmountExceeds();
+error WithdrawDisabled();
+error InvalidValidationAttestation();
 
+interface IValtzPool {
     struct PoolConfig {
         address owner;
         string name;
@@ -45,36 +49,16 @@ interface IValtzPool {
         uint24 boostRate;
     }
 
-    struct ValidationData {
-        bytes32 nodeID;
-        address nodeRewardOwner;
-        LibInterval.Interval interval;
-    }
-
-    struct ValidationAttestation {
-        ValidationData validation;
-        bytes signature;
-        address signer;
-    }
-
-    struct RewardOwnerData {
-        bytes32 nodeID;
-        address pChainRewardOwner;
-        uint40 timestamp;
-    }
-
-    struct RewardOwnerAttestation {
-        RewardOwnerData data;
-        bytes signature;
-        address signer;
-    }
-
     function initialize(PoolConfig memory config) external;
 }
 
 contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable2StepUpgradeable {
     using SafeERC20 for IERC20;
     using Address for address payable;
+
+    /* /////////////////////////////////////////////////////////////////////////
+                                    ERRORS
+    ///////////////////////////////////////////////////////////////////////// */
 
     /* /////////////////////////////////////////////////////////////////////////
                                     CONSTANTS
@@ -85,9 +69,6 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     uint24 public constant BOOST_RATE_PRECISION = 1e6;
 
     IRoleAuthority public immutable roleAuthority;
-
-    bytes32 public constant VALIDATION_DATA_TYPEHASH =
-        keccak256("ValidationData(bytes32 nodeID,address nodeRewardOwner,uint40 start,uint40 term)");
 
     /* /////////////////////////////////////////////////////////////////////////
                                      STORAGE
@@ -158,20 +139,25 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     function redeem(
         uint256 amount,
         address receiver,
-        ValidationAttestation memory attestation,
+        AttestedValidation.Validation memory attestedValidation,
         DelegatedAuth.SignedAuth memory signedAuth
     ) public onlyActive returns (uint256 withdrawAmount) {
         // TODO - ensure the subnet ID matches the pool's subnet ID
         require(amount <= validatorRedeemable, "Redeem amount exceeds validator stake");
-        _checkAttestation(attestation);
+
+        AttestedValidation._assertValidAttestation(attestedValidation, _domainSeparatorV4());
+        if (!roleAuthority.hasRole(VALTZ_SIGNER_ROLE, attestedValidation.signer)) {
+            revert InvalidAttestationSigner();
+        }
+
         DelegatedAuth._assertAuth(
             signedAuth,
-            attestation.validation.nodeRewardOwner,
+            attestedValidation.data.nodeRewardOwner,
             msg.sender,
             address(this),
             _domainSeparatorV4()
         );
-        _consumeInterval(attestation.validation.nodeID, attestation.validation.interval);
+        _consumeInterval(attestedValidation.data.nodeID, attestedValidation.data.interval);
 
         totalDeposited -= amount;
         _burn(msg.sender, amount);
@@ -292,41 +278,6 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
             }
         }
         intervals.push(interval);
-    }
-
-    function VALIDATION_TYPEHASH() public pure returns (bytes32) {
-        return keccak256(
-            "ValidationData(bytes32 nodeID,address nodeRewardOwner,uint256 start,uint256 end)"
-        );
-    }
-
-    function _checkAttestation(ValidationAttestation memory attestation) internal view {
-        if (!roleAuthority.hasRole(VALTZ_SIGNER_ROLE, attestation.signer)) {
-            revert InvalidAttestationSigner();
-        }
-
-        // bytes32 hashed = _hashTypedDataV4(
-        //     keccak256(
-        //         abi.encode(
-        //             attestation.validation.nodeID,
-        //             attestation.validation.nodeRewardOwner,
-        //             attestation.validation.interval.start,
-        //             attestation.validation.interval.term
-        //         )
-        //     )
-        // );
-
-        bytes32 structHash = keccak256(abi.encode(VALIDATION_DATA_TYPEHASH, attestation.validation));
-
-        bytes32 hashed = _hashTypedDataV4(structHash);
-
-        // address signer = ECDSA.recover(hash, v, r, s);
-
-        if (
-            !SignatureChecker.isValidSignatureNow(attestation.signer, hashed, attestation.signature)
-        ) {
-            revert InvalidAttestationSignature();
-        }
     }
 
     /* /////////////////////////////////////////////////////////////////////////

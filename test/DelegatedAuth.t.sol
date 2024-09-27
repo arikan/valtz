@@ -44,7 +44,7 @@ contract DelegatedAuthTest is Test {
             start: uint40(block.timestamp),
             term: uint40(1 hours)
         });
-        bytes32 structHash = keccak256(abi.encode(DelegatedAuth.AUTH_DATA_TYPEHASH, authData));
+        bytes32 structHash = keccak256(abi.encode(DelegatedAuth._TYPEHASH, authData));
         bytes32 messageHash = MessageHashUtils.toTypedDataHash(domainSeparator, structHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pChainSigner.key, messageHash);

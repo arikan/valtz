@@ -29,7 +29,7 @@ library DelegatedAuth {
         bytes signature;
     }
 
-    bytes32 constant AUTH_DATA_TYPEHASH =
+    bytes32 internal constant _TYPEHASH =
         keccak256("AuthData(address subject,address scope,uint40 start,uint40 term)");
 
     function _messageHash(AuthData memory data, bytes32 domainSeparator)
@@ -37,7 +37,7 @@ library DelegatedAuth {
         pure
         returns (bytes32)
     {
-        bytes32 structHash = keccak256(abi.encode(AUTH_DATA_TYPEHASH, data));
+        bytes32 structHash = keccak256(abi.encode(_TYPEHASH, data));
         return MessageHashUtils.toTypedDataHash(domainSeparator, structHash);
     }
 
