@@ -15,28 +15,32 @@ Similar to traditional commodity futures, Valtz validation futures are tradeable
 The contract in `src/Valtz.sol` consists of the following functionality:
 
 - **createPool**: Creates a futures staking pool for a specific blockchain/subnet. Only allowed creators for a specific subnet can create pools.
-    - `_token` The ERC20 token used for staking and rewards
-    - `_rewardAmount` The initial amount of tokens for rewards
-    - `_boostRate` The boost rate for rewards (1-100)
-    - `_requiredDuration` The required staking duration (e.g., 360 days)
-    - `_subnetID` The ID of the subnet for this pool
+
+  - `_token` The ERC20 token used for staking and rewards
+  - `_rewardAmount` The initial amount of tokens for rewards
+  - `_boostRate` The boost rate for rewards (1-100)
+  - `_requiredDuration` The required staking duration (e.g., 360 days)
+  - `_subnetId` The ID of the subnet for this pool
 
 - **depositToPool**: Allows users to deposit tokens into a specific pool. Mints receipt tokens to represent the user's stake and the reward.
-    - `_poolId` The ID of the pool to deposit into
-    - `_amount` The amount of tokens to deposit
+
+  - `_poolId` The ID of the pool to deposit into
+  - `_amount` The amount of tokens to deposit
 
 - **claimReward**: Allows users to claim rewards and withdraw their stake.
-    - `_poolId` The ID of the pool to claim from
-    - `_amount` The amount of receipt/futures token (burned after transferring deposit + rewards)
-    - `_validationProof` Proof of required staking duration
+
+  - `_poolId` The ID of the pool to claim from
+  - `_amount` The amount of receipt/futures token (burned after transferring deposit + rewards)
+  - `_validationProof` Proof of required staking duration
 
 - **withdrawReward**: Allows pool creators to withdraw excess rewards. Only the pool creator can withdraw, and only excess rewards can be withdrawn.
-    - `_poolId` The ID of the pool to withdraw from
-    - `_amount` The amount of rewards to withdraw
+
+  - `_poolId` The ID of the pool to withdraw from
+  - `_amount` The amount of rewards to withdraw
 
 - **increasePoolReward**: Allows pool creators to increase the reward balance of a pool. Only the pool creator can increase rewards.
-    - `_poolId` The ID of the pool to increase rewards for
-    - `_additionalReward` The amount of additional rewards to add
+  - `_poolId` The ID of the pool to increase rewards for
+  - `_additionalReward` The amount of additional rewards to add
 
 ## Usage
 
@@ -68,20 +72,21 @@ platform.getBlockchains() ->
     blockchains: []{
         id: string,
         name:string,
-        subnetID: string,
+        subnetId: string,
         vmID: string
     }
 }
 ```
 
 ### `platform.getcurrentvalidators`
+
 https://docs.avax.network/api-reference/p-chain/api#platformgetcurrentvalidators
 
 Returns the list of all current validators of the Primary Network or a specified subnet.
 
 ```js
 platform.getCurrentValidators({
-    subnetID: string, // Optional. If omitted, returns the current validators of the Primary Network
+    subnetId: string, // Optional. If omitted, returns the current validators of the Primary Network
     nodeIDs: string[], // Optional. If omitted, returns all current validators. If a specified nodeID is not in the set of current validators, it is not inclunded in the response.
 }) -> {
     validators: []{

@@ -6,6 +6,7 @@ error InvalidAttestationSignature();
 error InvalidAuthorizationSigner();
 error InvalidAuthorizationSignature();
 error UnauthorizedRedeemer();
+error InvalidAuthScope();
 error ExpiredAuthorization();
 
 error RedemptionAmountExceeds();
