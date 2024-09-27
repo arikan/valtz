@@ -20,7 +20,7 @@ The contract in `src/Valtz.sol` consists of the following functionality:
   - `_rewardAmount` The initial amount of tokens for rewards
   - `_boostRate` The boost rate for rewards (1-100)
   - `_requiredDuration` The required staking duration (e.g., 360 days)
-  - `_subnetId` The ID of the subnet for this pool
+  - `_subnetID` The ID of the subnet for this pool
 
 - **depositToPool**: Allows users to deposit tokens into a specific pool. Mints receipt tokens to represent the user's stake and the reward.
 
@@ -72,7 +72,7 @@ platform.getBlockchains() ->
     blockchains: []{
         id: string,
         name:string,
-        subnetId: string,
+        subnetID: string,
         vmID: string
     }
 }
@@ -86,7 +86,7 @@ Returns the list of all current validators of the Primary Network or a specified
 
 ```js
 platform.getCurrentValidators({
-    subnetId: string, // Optional. If omitted, returns the current validators of the Primary Network
+    subnetID: string, // Optional. If omitted, returns the current validators of the Primary Network
     nodeIDs: string[], // Optional. If omitted, returns all current validators. If a specified nodeID is not in the set of current validators, it is not inclunded in the response.
 }) -> {
     validators: []{
@@ -141,7 +141,7 @@ Returns UTXO transaction details by its ID.
 
 ### Blockchain validators and total stake
 
-For a given `subnetId`, number of current validators and total at stake can be listed using `platform.getcurrentvalidators`.
+For a given `subnetID`, number of current validators and total at stake can be listed using `platform.getcurrentvalidators`.
 
 ### Verify validator ownership
 
