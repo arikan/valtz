@@ -12,35 +12,65 @@ Similar to traditional commodity futures, Valtz validation futures are tradeable
 
 ## Mechanism
 
-The contract in `src/Valtz.sol` consists of the following functionality:
+The Valtz protocol consists of two main contracts:
 
-- **createPool**: Creates a futures staking pool for a specific blockchain/subnet. Only allowed creators for a specific subnet can create pools.
+1. `Valtz.sol`: The factory contract for creating pools
+2. `ValtzPool.sol`: The individual pool contract
 
-  - `_token` The ERC20 token used for staking and rewards
-  - `_rewardAmount` The initial amount of tokens for rewards
-  - `_boostRate` The boost rate for rewards (1-100)
-  - `_requiredDuration` The required staking duration (e.g., 360 days)
-  - `_subnetID` The ID of the subnet for this pool
+## Valtz.sol
 
-- **depositToPool**: Allows users to deposit tokens into a specific pool. Mints receipt tokens to represent the user's stake and the reward.
+The `Valtz` contract is responsible for creating new pools and includes the following main functions:
 
-  - `_poolId` The ID of the pool to deposit into
-  - `_amount` The amount of tokens to deposit
+- **createPool**: Creates a new pool with the given configuration. This function is currently permissionless but will be removed in production.
 
-- **claimReward**: Allows users to claim rewards and withdraw their stake.
+  - `config`: A struct containing the pool configuration parameters
 
-  - `_poolId` The ID of the pool to claim from
-  - `_amount` The amount of receipt/futures token (burned after transferring deposit + rewards)
-  - `_validationProof` Proof of required staking duration
+- **adminCreatePool**: Creates a new pool, restricted to accounts with the `POOL_CREATOR_ADMIN_ROLE`.
 
-- **withdrawReward**: Allows pool creators to withdraw excess rewards. Only the pool creator can withdraw, and only excess rewards can be withdrawn.
+  - `config`: A struct containing the pool configuration parameters
 
-  - `_poolId` The ID of the pool to withdraw from
-  - `_amount` The amount of rewards to withdraw
+- **subnetOwnerCreatePool**: Creates a new pool, intended to be restricted to subnet owners (implementation pending).
+  - `config`: A struct containing the pool configuration parameters
 
-- **increasePoolReward**: Allows pool creators to increase the reward balance of a pool. Only the pool creator can increase rewards.
-  - `_poolId` The ID of the pool to increase rewards for
-  - `_additionalReward` The amount of additional rewards to add
+## ValtzPool.sol
+
+The `ValtzPool` contract represents an individual staking pool and includes the following main functions:
+
+- **initialize**: Initializes the pool with the given configuration (called by the factory contract).
+
+  - `config`: A struct containing the pool configuration parameters
+
+- **deposit**: Allows users to deposit tokens into the pool.
+
+  - `tokens`: The amount of tokens to deposit
+  - `receiver`: The address to receive the minted receipt tokens
+
+- **redeem**: Allows users to redeem their staked tokens and claim rewards.
+
+  - `amount`: The amount of receipt tokens to redeem
+  - `receiver`: The address to receive the withdrawn tokens and rewards
+  - `attestedValidation`: A struct containing validation data
+  - `signedAuth`: A struct containing authorization data
+
+- **start**: Starts the pool, allowing deposits and redemptions (only callable by the owner).
+
+- **startAt**: Starts the pool at a specific timestamp (only callable by the owner).
+
+  - `_startTime`: The timestamp to start the pool
+
+- **rescue functions**: Allow the owner to rescue various token types (ERC20, ERC721, ERC1155) and native currency from the contract.
+
+Key features of the ValtzPool contract:
+
+- Uses OpenZeppelin's upgradeable contracts
+- Implements ERC20 functionality for receipt tokens
+- Includes a boost rate mechanism for rewards
+- Tracks validator intervals to prevent double-redemption
+- Implements role-based access control for certain functions
+- Uses attestations for validation proofs
+- Utilizes delegated authorization for redemptions
+
+The contract also includes various view functions for calculating rewards, checking pool status, and retrieving validator intervals.
 
 ## Usage
 

@@ -9,20 +9,21 @@ import "./Interval.sol";
 
 library AttestedValidation {
     using ECDSA for bytes32;
-    using LibInterval for LibInterval.Interval;
 
     error InvalidAttestationSigner();
     error InvalidAttestationSignature();
+    error InactiveAttestation();
+    error ExpiredAttestation();
     error InvalidAttestationTimeInterval();
 
-    struct Data {
+    struct ValidationData {
         bytes32 nodeID;
         address nodeRewardOwner;
         LibInterval.Interval interval;
     }
 
     struct Validation {
-        Data data;
+        ValidationData data;
         bytes signature;
         address signer;
     }
@@ -30,7 +31,7 @@ library AttestedValidation {
     bytes32 internal constant _TYPEHASH =
         keccak256("ValidationData(bytes32 nodeID,address nodeRewardOwner,uint40 start,uint40 term)");
 
-    function _messageHash(Data memory data, bytes32 domainSeparator)
+    function _messageHash(ValidationData memory data, bytes32 domainSeparator)
         internal
         pure
         returns (bytes32)
@@ -50,7 +51,7 @@ library AttestedValidation {
         ) {
             revert InvalidAttestationSignature();
         }
-        if (!attestation.data.interval.contains(uint40(block.timestamp))) {
+        if (attestation.data.interval.start > block.timestamp) {
             revert InvalidAttestationTimeInterval();
         }
     }

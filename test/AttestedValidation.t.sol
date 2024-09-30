@@ -32,7 +32,7 @@ contract AttestedValidationTest is Test {
 
         domainSeparator = keccak256("MockDomainSeparator");
 
-        AttestedValidation.Data memory data = AttestedValidation.Data({
+        AttestedValidation.ValidationData memory data = AttestedValidation.ValidationData({
             nodeID: nodeID,
             nodeRewardOwner: nodeRewardOwner,
             interval: LibInterval.Interval({start: uint40(block.timestamp), term: uint40(1 hours)})

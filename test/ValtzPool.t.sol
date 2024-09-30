@@ -148,7 +148,7 @@ contract ValtzPoolTest is Test {
         uint40 start,
         uint40 term
     ) internal view returns (AttestedValidation.Validation memory) {
-        AttestedValidation.Data memory data = AttestedValidation.Data({
+        AttestedValidation.ValidationData memory data = AttestedValidation.ValidationData({
             nodeID: nodeID,
             nodeRewardOwner: rewardOwner,
             interval: LibInterval.Interval({start: start, term: term})
