@@ -181,7 +181,7 @@ contract ValtzPoolTest is Test {
 
         // Try to rescue the primary token (should fail)
         vm.prank(owner);
-        vm.expectRevert("Cannot rescue primary token unless pool is closed");
+        vm.expectRevert(abi.encodeWithSelector(ValtzPool.CannotRescuePrimaryToken.selector));
         pool.rescueERC20(IERC20(address(token)), owner, rescueAmount);
 
         // Close the pool by advancing time

@@ -62,6 +62,13 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     error InvalidSubnetID(bytes32);
     error InvalidDuration(uint40);
     error InvalidRedeemer(address);
+    error InvalidTokenAmount();
+    error DepositExceedsMax();
+    error AlreadyActive();
+    error MustStartInCurrentOrFutureBlock();
+    error PoolNotActive();
+    error CannotRescuePrimaryToken();
+    error IntervalOverlap();
 
     /* /////////////////////////////////////////////////////////////////////////
                                     STRUCTS
@@ -174,8 +181,12 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
      */
     function deposit(uint256 tokens, address receiver) public onlyActive {
         // Checks
-        require(tokens > 0, "Invalid token amount");
-        require(tokens <= maxDeposit(), "Deposit would exceed pool max");
+        if (tokens <= 0) {
+            revert InvalidTokenAmount();
+        }
+        if (tokens > maxDeposit()) {
+            revert DepositExceedsMax();
+        }
 
         // Effects
         totalDeposited += tokens;
@@ -249,9 +260,13 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
      * @param _startTime The start time to be set for the pool, represented as a uint40.
      */
     function startAt(uint40 _startTime) public onlyOwner onlyBeforeActive {
-        require(!started, "Already active");
+        if (started) {
+            revert AlreadyActive();
+        }
         started = true;
-        require(_startTime >= block.timestamp, "Must start in current or future block");
+        if (_startTime < block.timestamp) {
+            revert MustStartInCurrentOrFutureBlock();
+        }
         startTime = _startTime;
         availableRewards = calculateReward(max);
         token.safeTransferFrom(msg.sender, address(this), availableRewards);
@@ -363,7 +378,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     function _consumeInterval(bytes32 nodeID, LibInterval.Interval memory interval) internal {
         LibInterval.Interval[] storage intervals = _validatorIntervals[nodeID];
         if (interval.overlapsAny(intervals)) {
-            revert("ValidationRedemption: interval overlaps with previously recorded validation");
+            revert IntervalOverlap();
         }
         intervals.push(interval);
     }
@@ -374,7 +389,9 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
 
     function rescueERC20(IERC20 _token, address to, uint256 amount) public onlyOwner {
         if (!isClosed()) {
-            require(_token != token, "Cannot rescue primary token unless pool is closed");
+            if (_token == token) {
+                revert CannotRescuePrimaryToken();
+            }
         }
         _token.safeTransfer(to, amount);
     }
@@ -399,12 +416,16 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     ///////////////////////////////////////////////////////////////////////// */
 
     modifier onlyBeforeActive() {
-        require(!started, "Pool is not active");
+        if (started) {
+            revert PoolNotActive();
+        }
         _;
     }
 
     modifier onlyActive() {
-        require(started && !isClosed(), "Pool is not active");
+        if (!started || isClosed()) {
+            revert PoolNotActive();
+        }
         _;
     }
 }
