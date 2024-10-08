@@ -83,8 +83,24 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
                                     CONSTANTS
     ///////////////////////////////////////////////////////////////////////// */
 
+    /**
+     * @dev The time-to-live (TTL) for a Valtz signature, defined as a constant.
+     * This value represents the duration (in minutes) for which a Valtz signature is considered valid.
+     * After this period, the signature will expire and no longer be valid.
+     */
     uint256 public constant VALTZ_SIGNATURE_TTL = 5 minutes;
+
+    /**
+     * @dev The precision used for boost rate calculations.
+     * This constant defines the number of decimal places to consider
+     * when calculating boost rates, set to 1e6 (1,000,000).
+     */
     uint24 public constant BOOST_RATE_PRECISION = 1e6;
+
+    /**
+     * @notice The role authority contract that manages roles and permissions.
+     * @dev This is an immutable variable, meaning it can only be set once during contract deployment.
+     */
     IRoleAuthority public immutable roleAuthority;
 
     /* /////////////////////////////////////////////////////////////////////////
@@ -124,13 +140,18 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     /// @notice The total amount staked
     uint256 public availableRewards;
 
-    mapping(bytes32 => LibInterval.Interval[]) public _validatorIntervals;
+    mapping(bytes32 => LibInterval.Interval[]) private _validatorIntervals;
 
     constructor(IRoleAuthority _roleAuthority) {
         roleAuthority = _roleAuthority;
         _disableInitializers();
     }
 
+    /**
+     * @notice Initializes the ValtzPool contract with the given configuration.
+     * @dev This function can only be called once due to the `initializer` modifier.
+     * @param config The configuration parameters for the pool.
+     */
     function initialize(PoolConfig memory config) external override initializer {
         __ERC20_init(config.name, config.symbol);
         __ERC20Permit_init(config.name);
@@ -145,14 +166,35 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         validatorRedeemable = config.validatorRedeemable;
     }
 
-    function deposit(uint256 tokens, address receiver) public onlyActive returns (uint256) {
+    /**
+     * @notice Deposits a specified amount of tokens into the pool, receiving pool tokens in return.
+     * @dev This function can only be called when the contract is active.
+     * @param tokens The amount of tokens to deposit.
+     * @param receiver The address of the receiver who will receive the pool tokens.
+     */
+    function deposit(uint256 tokens, address receiver) public onlyActive {
+        // Checks
+        require(tokens > 0, "Invalid token amount");
         require(tokens <= maxDeposit(), "Deposit would exceed pool max");
+
+        // Effects
         totalDeposited += tokens;
-        token.safeTransferFrom(msg.sender, address(this), tokens);
         _mint(receiver, tokens);
-        return tokens;
+
+        // Interactions
+        token.safeTransferFrom(msg.sender, address(this), tokens);
+
+        emit ValtzPoolDeposit(msg.sender, receiver, tokens);
     }
 
+    /**
+     * @notice Redeems the user's tokens from the pool.
+     * @dev This function allows users to redeem their deposited tokens along with any rewards earned.
+     * @param amount The amount of tokens to redeem.
+     * @param receiver The address to which the redeemed tokens should be sent.
+     * @param valtzSignedData The data signed by the Valtz signer, checked by the pool contract
+     * @param valtzSignature The signature of the Valtz signer.
+     */
     function redeem(
         uint256 amount,
         address receiver,
@@ -185,16 +227,27 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         availableRewards -= rewardAmount;
         withdrawAmount = amount + rewardAmount;
         token.safeTransfer(receiver, withdrawAmount);
+
+        emit ValtzPoolRedeem(msg.sender, receiver, amount, withdrawAmount);
     }
 
     /* /////////////////////////////////////////////////////////////////////////
                                     OWNER
     ///////////////////////////////////////////////////////////////////////// */
 
+    /**
+     * @notice Starts the ValtzPool.
+     * @dev This function can only be called by the owner and only if the pool is not already active.
+     */
     function start() public onlyOwner onlyBeforeActive {
         startAt(uint40(block.timestamp));
     }
 
+    /**
+     * @notice Sets the start time for the pool.
+     * @dev This function can only be called by the owner and only before the pool becomes active.
+     * @param _startTime The start time to be set for the pool, represented as a uint40.
+     */
     function startAt(uint40 _startTime) public onlyOwner onlyBeforeActive {
         require(!started, "Already active");
         started = true;
@@ -202,58 +255,71 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         startTime = _startTime;
         availableRewards = calculateReward(max);
         token.safeTransferFrom(msg.sender, address(this), availableRewards);
-    }
-
-    function rescueERC20(IERC20 _token, address to, uint256 amount) public onlyOwner {
-        if (!isClosed()) {
-            require(_token != token, "Cannot rescue primary token unless pool is closed");
-        }
-        _token.safeTransfer(to, amount);
-    }
-
-    function rescueNative(address payable to, uint256 amount) public onlyOwner {
-        to.sendValue(amount);
-    }
-
-    function rescueERC1155(IERC1155 _token, uint256 tokenId, address to, uint256 amount)
-        public
-        onlyOwner
-    {
-        _token.safeTransferFrom(address(this), to, tokenId, amount, "");
-    }
-
-    function rescueERC721(IERC721 _token, uint256 tokenId, address to) public onlyOwner {
-        _token.safeTransferFrom(address(this), to, tokenId);
+        emit ValtzPoolStart(_startTime);
     }
 
     /* /////////////////////////////////////////////////////////////////////////
                                     VIEW
     ///////////////////////////////////////////////////////////////////////// */
 
+    /**
+     * @notice Calculates the reward based on the given amount.
+     * @param amount The amount for which the reward is to be calculated.
+     * @return The calculated reward.
+     */
     function calculateReward(uint256 amount) public view returns (uint256) {
         return (amount * boostRate) / BOOST_RATE_PRECISION;
     }
 
+    /**
+     * @notice Retrieves the current reward pool balance.
+     * @dev This function returns the total amount of rewards available in the pool.
+     * @return The current reward pool balance as a uint256.
+     */
     function rewardPool() public view returns (uint256) {
         return calculateReward(max);
     }
 
+    /**
+     * @notice Returns the maximum amount that can be deposited into the pool.
+     * @dev This function provides the upper limit for deposits.
+     * @return The maximum deposit amount as a uint256.
+     */
     function maxDeposit() public view returns (uint256) {
         return max > totalDeposited ? max - totalDeposited : 0;
     }
 
+    /**
+     * @notice The end time of the pool.
+     * @dev This function provides the end time of the pool in Unix timestamp format.
+     * @return The end time of the pool as a uint40 value.
+     */
     function endTime() public view returns (uint40) {
         return startTime + poolTerm;
     }
 
+    /**
+     * @notice Whether the pool is currently open.
+     * @return bool indicating whether the pool is open.
+     */
     function isOpen() public view returns (bool) {
         return started && (block.timestamp < endTime());
     }
 
+    /**
+     * @notice Checks if the pool is closed.
+     * @dev This function returns a boolean indicating the closed status of the pool.
+     * @return bool True if the pool is closed, false otherwise.
+     */
     function isClosed() public view returns (bool) {
         return started && (block.timestamp >= endTime());
     }
 
+    /**
+     * @notice Retrieves the intervals associated with a specific validator node.
+     * @param nodeID The unique identifier of the validator node.
+     * @return An array of intervals during which the validator node was active.
+     */
     function validatorIntervals(bytes32 nodeID)
         public
         view
@@ -300,6 +366,32 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
             revert("ValidationRedemption: interval overlaps with previously recorded validation");
         }
         intervals.push(interval);
+    }
+
+    /* /////////////////////////////////////////////////////////////////////////
+                                    RESCUE
+    ///////////////////////////////////////////////////////////////////////// */
+
+    function rescueERC20(IERC20 _token, address to, uint256 amount) public onlyOwner {
+        if (!isClosed()) {
+            require(_token != token, "Cannot rescue primary token unless pool is closed");
+        }
+        _token.safeTransfer(to, amount);
+    }
+
+    function rescueNative(address payable to, uint256 amount) public onlyOwner {
+        to.sendValue(amount);
+    }
+
+    function rescueERC1155(IERC1155 _token, uint256 tokenId, address to, uint256 amount)
+        public
+        onlyOwner
+    {
+        _token.safeTransferFrom(address(this), to, tokenId, amount, "");
+    }
+
+    function rescueERC721(IERC721 _token, uint256 tokenId, address to) public onlyOwner {
+        _token.safeTransferFrom(address(this), to, tokenId);
     }
 
     /* /////////////////////////////////////////////////////////////////////////
