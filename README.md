@@ -85,6 +85,20 @@ forge build
 forge test
 ```
 
+### Deploy
+
+```sh
+forge script script/Valtz.s.sol --rpc-url fuji --broadcast --verify
+# + your private key, account, etc
+```
+
+### Create ABIs
+
+```sh
+forge inspect Valtz abi
+forge inspect ValtzPool abi
+```
+
 ## Avalanche validation data
 
 The Avalanche P-Chain manages staking and delegating across all chains in the Avalanche ecosystem. The P-Chain API can be called from any Avalanche node and provides various endpoints. They can be used for performing off-chain computations before making C-Chain contract calls. Two endpoints are particularly useful for validation:
