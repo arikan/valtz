@@ -9,8 +9,6 @@ import {IValtzPool} from "./ValtzPool.sol";
 import {VALTZ_SIGNER_ROLE as _VALTZ_SIGNER_ROLE} from "./ValtzConstants.sol";
 import "./ValtzEvents.sol";
 
-import {ValtzAttestation} from "./lib/ValtzAttestation.sol";
-
 contract Valtz is AccessControl {
     address public poolImplementation;
     bytes32 public constant VALTZ_SIGNER_ROLE = _VALTZ_SIGNER_ROLE;

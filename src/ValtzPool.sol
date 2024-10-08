@@ -3,13 +3,10 @@ pragma solidity ^0.8.13;
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC20Upgradeable} from
     "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
@@ -17,23 +14,16 @@ import {ERC20PermitUpgradeable} from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import {Ownable2StepUpgradeable} from
     "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {AccessManaged} from "@openzeppelin/contracts/access/manager/AccessManaged.sol";
 
-import "@openzeppelin/contracts/access/manager/AccessManaged.sol";
+// import {console2} from "forge-std/console2.sol";
 
-import "./lib/DelegatedAuth.sol";
 import "./lib/Interval.sol";
-import "./lib/AttestedValidation.sol";
 import "./ValtzConstants.sol";
 import "./interfaces/IRoleAuthority.sol";
 import "./ValtzEvents.sol";
-
-error UnauthorizedRedeemer();
-error InvalidAuthScope();
-error ExpiredAuthorization();
-error InvalidAttestationSigner();
-error RedemptionAmountExceeds();
-error WithdrawDisabled();
-error InvalidValidationAttestation();
 
 interface IValtzPool {
     struct PoolConfig {
@@ -43,7 +33,7 @@ interface IValtzPool {
         bytes32 subnetID;
         uint40 poolTerm;
         IERC20 token;
-        uint40 validatorTerm;
+        uint40 validatorDuration;
         uint256 validatorRedeemable;
         uint256 max;
         uint24 boostRate;
@@ -58,13 +48,43 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     using LibInterval for LibInterval.Interval;
 
     /* /////////////////////////////////////////////////////////////////////////
+                                    ERRORS
+    ///////////////////////////////////////////////////////////////////////// */
+
+    error RedeemAmountTooHigh(uint256);
+    error InvalidSignedAt(uint40);
+    error NullReceiver();
+    error InvalidSigner(address);
+    error InvalidChainId(uint256);
+    error InvalidTarget(address);
+    error InvalidRedemptionStart();
+    error ExpiredRedemption();
+    error InvalidSubnetID(bytes32);
+    error InvalidDuration(uint40);
+    error InvalidRedeemer(address);
+
+    /* /////////////////////////////////////////////////////////////////////////
+                                    STRUCTS
+    ///////////////////////////////////////////////////////////////////////// */
+
+    struct ValidationRedemptionData {
+        uint256 chainId;
+        address target;
+        uint40 signedAt;
+        bytes32 nodeID;
+        bytes32 subnetID;
+        address redeemer;
+        uint40 duration;
+        uint40 start;
+        uint40 end;
+    }
+
+    /* /////////////////////////////////////////////////////////////////////////
                                     CONSTANTS
     ///////////////////////////////////////////////////////////////////////// */
 
-    bytes32 public constant ATTESTOR_ROLE = keccak256("ATTESTOR_ROLE");
-
+    uint256 public constant VALTZ_SIGNATURE_TTL = 5 minutes;
     uint24 public constant BOOST_RATE_PRECISION = 1e6;
-
     IRoleAuthority public immutable roleAuthority;
 
     /* /////////////////////////////////////////////////////////////////////////
@@ -80,8 +100,8 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     /// @notice The token that is being staked in the pool
     IERC20 public token;
 
-    /// @notice The required amount of time a validator must be attested to in order to redeem
-    uint40 public validatorTerm;
+    /// @notice The required amount of time a validator must have validated in order to redeem
+    uint40 public validatorDuration;
 
     /// @notice The maximum amount of tokens that can be deposited into the pool
     uint256 public max;
@@ -89,7 +109,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     /// @notice The rate at which rewards are boosted
     uint24 public boostRate;
 
-    /// @notice The max amount of tokens redeemable for an attested validator interval of `validatorTerm` duration.
+    /// @notice The max amount redeemable for a signed proof of validation of validatorDuration.
     uint256 public validatorRedeemable;
 
     /// @notice Whether the pool has been started
@@ -119,7 +139,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         subnetID = config.subnetID;
         token = config.token;
         poolTerm = config.poolTerm;
-        validatorTerm = config.validatorTerm;
+        validatorDuration = config.validatorDuration;
         max = config.max;
         boostRate = config.boostRate;
         validatorRedeemable = config.validatorRedeemable;
@@ -136,25 +156,28 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     function redeem(
         uint256 amount,
         address receiver,
-        AttestedValidation.Validation memory attestedValidation,
-        DelegatedAuth.SignedAuth memory signedAuth
+        bytes memory valtzSignedData,
+        bytes memory valtzSignature
     ) public onlyActive returns (uint256 withdrawAmount) {
-        // TODO - ensure the subnet ID matches the pool's subnet ID
-        require(amount <= validatorRedeemable, "Redeem amount exceeds validator stake");
-
-        AttestedValidation._assertValidAttestation(attestedValidation, _domainSeparatorV4());
-        if (!roleAuthority.hasRole(VALTZ_SIGNER_ROLE, attestedValidation.signer)) {
-            revert InvalidAttestationSigner();
+        if (amount > validatorRedeemable) {
+            revert RedeemAmountTooHigh(amount);
+        }
+        if (receiver == address(0)) {
+            revert NullReceiver();
         }
 
-        DelegatedAuth._assertAuth(
-            signedAuth,
-            attestedValidation.data.nodeRewardOwner,
-            msg.sender,
-            address(this),
-            _domainSeparatorV4()
-        );
-        _consumeInterval(attestedValidation.data.nodeID, attestedValidation.data.interval);
+        bytes32 hashed = MessageHashUtils.toEthSignedMessageHash(valtzSignedData);
+        address signer = ECDSA.recover(hashed, valtzSignature);
+        if (!roleAuthority.hasRole(VALTZ_SIGNER_ROLE, signer)) {
+            revert InvalidSigner(signer);
+        }
+
+        ValidationRedemptionData memory data =
+            abi.decode(valtzSignedData, (ValidationRedemptionData));
+
+        _validateRedemptionData(data);
+
+        _consumeInterval(data.nodeID, LibInterval.Interval(data.start, data.end));
 
         totalDeposited -= amount;
         _burn(msg.sender, amount);
@@ -215,10 +238,6 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         return calculateReward(max);
     }
 
-    function attestationsNeededToRedeem(uint256 amount) public view returns (uint256) {
-        return Math.ceilDiv(amount, validatorRedeemable);
-    }
-
     function maxDeposit() public view returns (uint256) {
         return max > totalDeposited ? max - totalDeposited : 0;
     }
@@ -244,17 +263,41 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     }
 
     /* /////////////////////////////////////////////////////////////////////////
-                                VALIDATION ATTESTATION
+                                VALIDATION CHECKS
     ///////////////////////////////////////////////////////////////////////// */
 
-    function _consumeInterval(bytes32 nodeID, LibInterval.Interval memory interval) internal {
-        if (interval.term != validatorTerm) {
-            revert("ValidationAttestation: attested term != required validation term");
+    function _validateRedemptionData(ValidationRedemptionData memory data) internal view {
+        if (data.chainId != block.chainid) {
+            revert InvalidChainId(data.chainId);
         }
 
+        if (data.target != address(this)) {
+            revert InvalidTarget(data.target);
+        }
+
+        if (
+            block.timestamp < data.signedAt || block.timestamp > data.signedAt + VALTZ_SIGNATURE_TTL
+        ) {
+            revert InvalidSignedAt(data.signedAt);
+        }
+
+        if (data.subnetID != subnetID) {
+            revert InvalidSubnetID(data.subnetID);
+        }
+
+        if (data.duration != validatorDuration) {
+            revert InvalidDuration(data.duration);
+        }
+
+        if (data.redeemer != msg.sender) {
+            revert InvalidRedeemer(data.redeemer);
+        }
+    }
+
+    function _consumeInterval(bytes32 nodeID, LibInterval.Interval memory interval) internal {
         LibInterval.Interval[] storage intervals = _validatorIntervals[nodeID];
         if (interval.overlapsAny(intervals)) {
-            revert("ValidationAttestation: interval overlaps with previously recorded validation");
+            revert("ValidationRedemption: interval overlaps with previously recorded validation");
         }
         intervals.push(interval);
     }
@@ -268,18 +311,8 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         _;
     }
 
-    modifier onlyNotActive() {
-        require(!started || isClosed(), "Pool is active");
-        _;
-    }
-
     modifier onlyActive() {
         require(started && !isClosed(), "Pool is not active");
-        _;
-    }
-
-    modifier onlyClosed() {
-        require(isClosed(), "Pool is active");
         _;
     }
 }

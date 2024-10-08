@@ -25,7 +25,7 @@ contract ValtzTest is Test {
             subnetID: bytes32(0),
             poolTerm: 3 * 365 days,
             token: IERC20(makeAddr("token")),
-            validatorTerm: 30 days,
+            validatorDuration: 30 days,
             validatorRedeemable: 100 * 1e18,
             max: 100 ether,
             boostRate: 100000

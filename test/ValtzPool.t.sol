@@ -8,13 +8,13 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import "../src/ValtzConstants.sol";
 import "../src/lib/Interval.sol";
-import "../src/lib/DelegatedAuth.sol";
-import "../src/lib/AttestedValidation.sol";
 import "../src/ValtzPool.sol";
 import "../src/interfaces/IRoleAuthority.sol";
 
@@ -62,7 +62,7 @@ contract ValtzPoolTest is Test {
             subnetID: bytes32(0),
             poolTerm: 3 * 365 days,
             token: token,
-            validatorTerm: 30 days,
+            validatorDuration: 30 days,
             validatorRedeemable: VALIDATOR_REDEEMABLE,
             max: MAX_DEPOSIT,
             boostRate: BOOST_RATE
@@ -77,8 +77,6 @@ contract ValtzPoolTest is Test {
             ),
             abi.encode(true)
         );
-
-        // pool.grantRole(pool.ATTESTOR_ROLE(), valtzSigner.addr);
 
         // Mint initial balances
         token.mint(address(this), 100000000 ether);
@@ -95,8 +93,6 @@ contract ValtzPoolTest is Test {
 
         pool.start();
     }
-
-    /// Deposits and withdraws with signed attestations
 
     function test_deposit() public {
         uint256 depositAmount = 100 * 1e18;
@@ -115,76 +111,33 @@ contract ValtzPoolTest is Test {
 
         uint256 withdrawAmount = 50 * 1e18;
 
-        AttestedValidation.Validation memory validation = _signedValidationAttestation(
-            pool,
-            bytes32(uint256(123)),
-            pChainNodeRewardSigner.addr,
-            uint40(block.timestamp),
-            uint40(30 days)
-        );
+        ValtzPool.ValidationRedemptionData memory data = ValtzPool.ValidationRedemptionData({
+            chainId: block.chainid,
+            target: address(pool),
+            signedAt: uint40(block.timestamp),
+            nodeID: pool.subnetID(),
+            subnetID: bytes32(0),
+            redeemer: user1,
+            duration: pool.validatorDuration(),
+            start: 1000,
+            end: 1000 + pool.validatorDuration() + 100
+        });
 
-        DelegatedAuth.SignedAuth memory auth = _signedAddressAuthorization(
-            pool, user1, address(pool), uint40(block.timestamp), uint40(30 days)
-        );
+        bytes memory encodedData = abi.encode(data);
+        bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(encodedData);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(valtzSigner.privateKey, messageHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
 
         uint256 expectedAmount =
             withdrawAmount + (withdrawAmount * BOOST_RATE / pool.BOOST_RATE_PRECISION());
 
         vm.prank(user1);
-        uint256 redeemedAmount = pool.redeem(withdrawAmount, user1, validation, auth);
+        uint256 redeemedAmount = pool.redeem(withdrawAmount, user1, encodedData, signature);
         assertEq(redeemedAmount, expectedAmount);
 
-        //     assertEq(token.balanceOf(address(pool)), depositAmount - withdrawAmount);
+        // assertEq(token.balanceOf(address(pool)), depositAmount - withdrawAmount);
         assertEq(token.balanceOf(user1), INITIAL_BALANCE - depositAmount + expectedAmount);
         assertEq(pool.balanceOf(user1), depositAmount - withdrawAmount);
-    }
-
-    // TODO - more deposit and withdraw cases
-
-    function _signedValidationAttestation(
-        ValtzPool valtzPool,
-        bytes32 nodeID,
-        address rewardOwner,
-        uint40 start,
-        uint40 term
-    ) internal view returns (AttestedValidation.Validation memory) {
-        AttestedValidation.ValidationData memory data = AttestedValidation.ValidationData({
-            nodeID: nodeID,
-            nodeRewardOwner: rewardOwner,
-            interval: LibInterval.Interval({start: start, term: term})
-        });
-
-        bytes32 structHash = keccak256(abi.encode(AttestedValidation._TYPEHASH, data));
-
-        bytes32 messageHash =
-            MessageHashUtils.toTypedDataHash(valtzPool.DOMAIN_SEPARATOR(), structHash);
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(valtzSigner.privateKey, messageHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-
-        return AttestedValidation.Validation({
-            data: data,
-            signature: signature,
-            signer: valtzSigner.addr
-        });
-    }
-
-    function _signedAddressAuthorization(
-        ValtzPool valtzPool,
-        address authorized,
-        address scope,
-        uint40 start,
-        uint40 term
-    ) internal view returns (DelegatedAuth.SignedAuth memory signedAuth) {
-        DelegatedAuth.AuthData memory authData =
-            DelegatedAuth.AuthData({subject: authorized, scope: scope, start: start, term: term});
-        bytes32 structHash = keccak256(abi.encode(DelegatedAuth._TYPEHASH, authData));
-        bytes32 messageHash =
-            MessageHashUtils.toTypedDataHash(valtzPool.DOMAIN_SEPARATOR(), structHash);
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pChainNodeRewardSigner.privateKey, messageHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-        signedAuth = DelegatedAuth.SignedAuth({data: authData, signature: signature});
     }
 
     /// Owner-only

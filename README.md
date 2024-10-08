@@ -32,7 +32,7 @@ The `Valtz` contract is responsible for creating new pools and includes the foll
 - **subnetOwnerCreatePool**: Creates a new pool, intended to be restricted to subnet owners (implementation pending).
   - `config`: A struct containing the pool configuration parameters
 
-## ValtzPool.sol
+### ValtzPool.sol
 
 The `ValtzPool` contract represents an individual staking pool and includes the following main functions:
 
@@ -49,8 +49,8 @@ The `ValtzPool` contract represents an individual staking pool and includes the 
 
   - `amount`: The amount of receipt tokens to redeem
   - `receiver`: The address to receive the withdrawn tokens and rewards
-  - `attestedValidation`: A struct containing validation data
-  - `signedAuth`: A struct containing authorization data
+  - `valtzSignedData`: A bytes array containing validation data
+  - `valtzSignature`: A bytes array containing the signature for authorization
 
 - **start**: Starts the pool, allowing deposits and redemptions (only callable by the owner).
 
@@ -60,14 +60,13 @@ The `ValtzPool` contract represents an individual staking pool and includes the 
 
 - **rescue functions**: Allow the owner to rescue various token types (ERC20, ERC721, ERC1155) and native currency from the contract.
 
-Key features of the ValtzPool contract:
+Key features of the `ValtzPool` contract:
 
 - Uses OpenZeppelin's upgradeable contracts
 - Implements ERC20 functionality for receipt tokens
 - Includes a boost rate mechanism for rewards
 - Tracks validator intervals to prevent double-redemption
 - Implements role-based access control for certain functions
-- Uses attestations for validation proofs
 - Utilizes delegated authorization for redemptions
 
 The contract also includes various view functions for calculating rewards, checking pool status, and retrieving validator intervals.
