@@ -4,9 +4,9 @@ out = "out"
 libs = ["lib"]
 remappings = ['@openzeppelin/=lib/openzeppelin-contracts/']
 
-solc_version = '0.8.26'
-evm_version = 'cancun'
-# via_ir = true
+solc = "0.8.19"
+evm_version = "shanghai"
+
 
 [fmt]
 line_length = 100
