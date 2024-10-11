@@ -9,9 +9,8 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import "../src/ValtzConstants.sol";
 import "../src/lib/Interval.sol";
@@ -124,7 +123,7 @@ contract ValtzPoolTest is Test {
         });
 
         bytes memory encodedData = abi.encode(data);
-        bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(encodedData);
+        bytes32 messageHash = ECDSA.toEthSignedMessageHash(encodedData);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(valtzSigner.privateKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
@@ -145,8 +144,7 @@ contract ValtzPoolTest is Test {
     function test_nonOwnerReverts(address payable user) public {
         vm.assume(user != pool.owner());
 
-        bytes memory unauthorized =
-            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user);
+        bytes memory unauthorized = "Ownable: caller is not the owner";
 
         vm.startPrank(user);
         vm.expectRevert(unauthorized);

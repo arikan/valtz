@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.19;
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -7,6 +7,8 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC20Upgradeable} from
     "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
@@ -14,16 +16,14 @@ import {ERC20PermitUpgradeable} from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import {Ownable2StepUpgradeable} from
     "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import {AccessManaged} from "@openzeppelin/contracts/access/manager/AccessManaged.sol";
+// import {MessageHashUtils} from "@openzeppelin/contracts-upgradeable/utils/cryptography/MessageHashUtilsUpgradeable.sol";
 
 // import {console2} from "forge-std/console2.sol";
 
 import "./lib/Interval.sol";
+import "./lib/Events.sol";
 import "./ValtzConstants.sol";
 import "./interfaces/IRoleAuthority.sol";
-import "./ValtzEvents.sol";
 
 interface IValtzPool {
     struct PoolConfig {
@@ -162,7 +162,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     function initialize(PoolConfig memory config) external override initializer {
         __ERC20_init(config.name, config.symbol);
         __ERC20Permit_init(config.name);
-        __Ownable_init(config.owner);
+        _transferOwnership(config.owner);
 
         subnetID = config.subnetID;
         token = config.token;
@@ -195,7 +195,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         // Interactions
         token.safeTransferFrom(msg.sender, address(this), tokens);
 
-        emit ValtzPoolDeposit(msg.sender, receiver, tokens);
+        emit ValtzEvents.ValtzPoolDeposit(msg.sender, receiver, tokens);
     }
 
     /**
@@ -219,7 +219,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
             revert NullReceiver();
         }
 
-        bytes32 hashed = MessageHashUtils.toEthSignedMessageHash(valtzSignedData);
+        bytes32 hashed = ECDSA.toEthSignedMessageHash(valtzSignedData);
         address signer = ECDSA.recover(hashed, valtzSignature);
         if (!roleAuthority.hasRole(VALTZ_SIGNER_ROLE, signer)) {
             revert InvalidSigner(signer);
@@ -239,7 +239,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         withdrawAmount = amount + rewardAmount;
         token.safeTransfer(receiver, withdrawAmount);
 
-        emit ValtzPoolRedeem(msg.sender, receiver, amount, withdrawAmount);
+        emit ValtzEvents.ValtzPoolRedeem(msg.sender, receiver, amount, withdrawAmount);
     }
 
     /* /////////////////////////////////////////////////////////////////////////
@@ -270,7 +270,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         startTime = _startTime;
         availableRewards = calculateReward(max);
         token.safeTransferFrom(msg.sender, address(this), availableRewards);
-        emit ValtzPoolStart(_startTime);
+        emit ValtzEvents.ValtzPoolStart(_startTime);
     }
 
     /* /////////////////////////////////////////////////////////////////////////
