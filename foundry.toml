@@ -5,9 +5,6 @@ libs = ["lib"]
 solc = "0.8.18"
 evm_version = "shanghai"
 
-[fmt]
-line_length = 100
-
 [rpc_endpoints]
 fuji = "https://api.avax-test.network/ext/bc/C/rpc"
 
