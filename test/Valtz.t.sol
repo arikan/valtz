@@ -5,7 +5,6 @@ import "forge-std/Test.sol";
 import "../src/Valtz.sol";
 import "../src/ValtzPool.sol";
 import "../src/interfaces/IRoleAuthority.sol";
-import "../src/lib/Events.sol";
 
 contract ValtzTest is Test {
     Valtz public valtz;
@@ -37,20 +36,12 @@ contract ValtzTest is Test {
     function testConstruction() public view {
         assertNotEq(defaultAdmin, address(0));
 
-        assertTrue(
-            valtz.hasRole(valtz.DEFAULT_ADMIN_ROLE(), defaultAdmin),
-            "Default admin role should be set"
-        );
-        assertTrue(
-            valtz.poolImplementation() == implementation, "Pool implementation should be set"
-        );
+        assertTrue(valtz.hasRole(valtz.DEFAULT_ADMIN_ROLE(), defaultAdmin), "Default admin role should be set");
+        assertTrue(valtz.poolImplementation() == implementation, "Pool implementation should be set");
     }
 
     function testDefaultAdminRole() public view {
-        assertTrue(
-            valtz.hasRole(valtz.DEFAULT_ADMIN_ROLE(), defaultAdmin),
-            "Default admin role should be set"
-        );
+        assertTrue(valtz.hasRole(valtz.DEFAULT_ADMIN_ROLE(), defaultAdmin), "Default admin role should be set");
     }
 
     function testPoolImplementation() public view {
@@ -58,9 +49,11 @@ contract ValtzTest is Test {
         assertTrue(poolImpl != address(0), "Pool implementation should be set");
     }
 
+    event CreatePool(address);
+
     function testCreatePool() public {
         vm.expectEmit(false, false, false, false);
-        emit ValtzEvents.CreatePool(0x104fBc016F4bb334D775a19E8A6510109AC63E00);
+        emit CreatePool(0x104fBc016F4bb334D775a19E8A6510109AC63E00);
         address pool = valtz.createPool(poolConfig);
         assertNotEq(pool, address(0), "Pool should be created");
     }

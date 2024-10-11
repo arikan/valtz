@@ -71,9 +71,7 @@ contract ValtzPoolTest is Test {
 
         vm.mockCall(
             roleAuthority,
-            abi.encodeWithSelector(
-                IRoleAuthority.hasRole.selector, VALTZ_SIGNER_ROLE, valtzSigner.addr
-            ),
+            abi.encodeWithSelector(IRoleAuthority.hasRole.selector, VALTZ_SIGNER_ROLE, valtzSigner.addr),
             abi.encode(true)
         );
 
@@ -93,8 +91,13 @@ contract ValtzPoolTest is Test {
         pool.start();
     }
 
+    event ValtzPoolDeposit(address indexed depositor, address indexed receiver, uint256 amount);
+
     function test_deposit() public {
         uint256 depositAmount = 100 * 1e18;
+
+        vm.expectEmit(true, true, true, true);
+        emit ValtzPoolDeposit(user1, user1, depositAmount);
         vm.prank(user1);
         pool.deposit(depositAmount, user1);
 
@@ -102,6 +105,10 @@ contract ValtzPoolTest is Test {
         assertEq(token.balanceOf(user1), INITIAL_BALANCE - depositAmount);
         assertEq(pool.balanceOf(user1), depositAmount);
     }
+
+    event ValtzPoolRedeem(
+        address indexed redeemer, address indexed receiver, uint256 poolTokenAmount, uint256 tokenAmountWithdrawn
+    );
 
     function test_redeem() public {
         uint256 depositAmount = 100 * 1e18;
@@ -127,16 +134,20 @@ contract ValtzPoolTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(valtzSigner.privateKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        uint256 expectedAmount =
-            withdrawAmount + (withdrawAmount * BOOST_RATE / pool.BOOST_RATE_PRECISION());
+        uint256 expectedAmount = withdrawAmount + (withdrawAmount * BOOST_RATE / pool.BOOST_RATE_PRECISION());
+
+        vm.expectEmit(true, true, true, true);
+        emit ValtzPoolRedeem(user1, user2, withdrawAmount, expectedAmount);
 
         vm.prank(user1);
-        uint256 redeemedAmount = pool.redeem(withdrawAmount, user1, encodedData, signature);
+        uint256 redeemedAmount = pool.redeem(withdrawAmount, user2, encodedData, signature);
         assertEq(redeemedAmount, expectedAmount);
 
-        // assertEq(token.balanceOf(address(pool)), depositAmount - withdrawAmount);
-        assertEq(token.balanceOf(user1), INITIAL_BALANCE - depositAmount + expectedAmount);
+        assertEq(token.balanceOf(user1), INITIAL_BALANCE - depositAmount);
         assertEq(pool.balanceOf(user1), depositAmount - withdrawAmount);
+
+        assertEq(token.balanceOf(user2), INITIAL_BALANCE + expectedAmount);
+        assertEq(pool.balanceOf(user2), 0);
     }
 
     /// Owner-only
@@ -234,9 +245,8 @@ contract ValtzPoolTest is Test {
         uint256 amount = 100;
         address recipient = address(0x456);
 
-        bytes memory expectedCall = abi.encodeCall(
-            mockERC1155.safeTransferFrom, (address(pool), recipient, tokenId, amount, "")
-        );
+        bytes memory expectedCall =
+            abi.encodeCall(mockERC1155.safeTransferFrom, (address(pool), recipient, tokenId, amount, ""));
 
         vm.prank(owner);
 
@@ -251,9 +261,8 @@ contract ValtzPoolTest is Test {
         uint256 tokenId = 42;
         address recipient = address(0x789);
 
-        bytes memory expectedCall = abi.encodeWithSignature(
-            "safeTransferFrom(address,address,uint256)", address(pool), recipient, tokenId
-        );
+        bytes memory expectedCall =
+            abi.encodeWithSignature("safeTransferFrom(address,address,uint256)", address(pool), recipient, tokenId);
 
         vm.prank(owner);
 

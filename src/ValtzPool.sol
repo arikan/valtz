@@ -10,18 +10,15 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {ERC20Upgradeable} from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {ERC20PermitUpgradeable} from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
-import {Ownable2StepUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 // import {MessageHashUtils} from "@openzeppelin/contracts-upgradeable/utils/cryptography/MessageHashUtilsUpgradeable.sol";
 
 // import {console2} from "forge-std/console2.sol";
 
 import "./lib/Interval.sol";
-import "./lib/Events.sol";
 import "./ValtzConstants.sol";
 import "./interfaces/IRoleAuthority.sol";
 
@@ -46,6 +43,31 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     using SafeERC20 for IERC20;
     using Address for address payable;
     using LibInterval for LibInterval.Interval;
+
+    /**
+     * @dev Emitted when a Valtz pool starts.
+     * @param startTime The timestamp when the Valtz pool starts.
+     */
+    event ValtzPoolStart(uint40 startTime);
+
+    /**
+     * @dev Emitted when a deposit is made into the Valtz pool, with pool tokens minted.
+     * @param depositor The address of the account making the deposit.
+     * @param receiver The address of the account receiving the pool tokens.
+     * @param amount The amount of tokens deposited.
+     */
+    event ValtzPoolDeposit(address indexed depositor, address indexed receiver, uint256 amount);
+
+    /**
+     * @dev Emitted when a user redeems tokens from the Valtz pool.
+     * @param redeemer The address of the account redeeming tokens.
+     * @param receiver The address of the account receiving tokens.
+     * @param poolTokenAmount The amount of pool tokens redeemed.
+     * @param tokenAmountWithdrawn The amount of tokens withdrawn.
+     */
+    event ValtzPoolRedeem(
+        address indexed redeemer, address indexed receiver, uint256 poolTokenAmount, uint256 tokenAmountWithdrawn
+    );
 
     /* /////////////////////////////////////////////////////////////////////////
                                     ERRORS
@@ -195,7 +217,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         // Interactions
         token.safeTransferFrom(msg.sender, address(this), tokens);
 
-        emit ValtzEvents.ValtzPoolDeposit(msg.sender, receiver, tokens);
+        emit ValtzPoolDeposit(msg.sender, receiver, tokens);
     }
 
     /**
@@ -206,12 +228,11 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
      * @param valtzSignedData The data signed by the Valtz signer, checked by the pool contract
      * @param valtzSignature The signature of the Valtz signer.
      */
-    function redeem(
-        uint256 amount,
-        address receiver,
-        bytes memory valtzSignedData,
-        bytes memory valtzSignature
-    ) public onlyActive returns (uint256 withdrawAmount) {
+    function redeem(uint256 amount, address receiver, bytes memory valtzSignedData, bytes memory valtzSignature)
+        public
+        onlyActive
+        returns (uint256 withdrawAmount)
+    {
         if (amount > validatorRedeemable) {
             revert RedeemAmountTooHigh(amount);
         }
@@ -225,8 +246,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
             revert InvalidSigner(signer);
         }
 
-        ValidationRedemptionData memory data =
-            abi.decode(valtzSignedData, (ValidationRedemptionData));
+        ValidationRedemptionData memory data = abi.decode(valtzSignedData, (ValidationRedemptionData));
 
         _validateRedemptionData(data);
 
@@ -239,7 +259,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         withdrawAmount = amount + rewardAmount;
         token.safeTransfer(receiver, withdrawAmount);
 
-        emit ValtzEvents.ValtzPoolRedeem(msg.sender, receiver, amount, withdrawAmount);
+        emit ValtzPoolRedeem(msg.sender, receiver, amount, withdrawAmount);
     }
 
     /* /////////////////////////////////////////////////////////////////////////
@@ -270,7 +290,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         startTime = _startTime;
         availableRewards = calculateReward(max);
         token.safeTransferFrom(msg.sender, address(this), availableRewards);
-        emit ValtzEvents.ValtzPoolStart(_startTime);
+        emit ValtzPoolStart(_startTime);
     }
 
     /* /////////////////////////////////////////////////////////////////////////
@@ -335,11 +355,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
      * @param nodeID The unique identifier of the validator node.
      * @return An array of intervals during which the validator node was active.
      */
-    function validatorIntervals(bytes32 nodeID)
-        public
-        view
-        returns (LibInterval.Interval[] memory)
-    {
+    function validatorIntervals(bytes32 nodeID) public view returns (LibInterval.Interval[] memory) {
         return _validatorIntervals[nodeID];
     }
 
@@ -356,9 +372,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
             revert InvalidTarget(data.target);
         }
 
-        if (
-            block.timestamp < data.signedAt || block.timestamp > data.signedAt + VALTZ_SIGNATURE_TTL
-        ) {
+        if (block.timestamp < data.signedAt || block.timestamp > data.signedAt + VALTZ_SIGNATURE_TTL) {
             revert InvalidSignedAt(data.signedAt);
         }
 
@@ -400,10 +414,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         to.sendValue(amount);
     }
 
-    function rescueERC1155(IERC1155 _token, uint256 tokenId, address to, uint256 amount)
-        public
-        onlyOwner
-    {
+    function rescueERC1155(IERC1155 _token, uint256 tokenId, address to, uint256 amount) public onlyOwner {
         _token.safeTransferFrom(address(this), to, tokenId, amount, "");
     }
 

@@ -6,13 +6,18 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {IValtzPool} from "./ValtzPool.sol";
-import {ValtzEvents} from "./lib/Events.sol";
 import {VALTZ_SIGNER_ROLE as _VALTZ_SIGNER_ROLE} from "./ValtzConstants.sol";
 
 contract Valtz is AccessControl {
     address public immutable poolImplementation;
     bytes32 public constant VALTZ_SIGNER_ROLE = _VALTZ_SIGNER_ROLE;
     bytes32 public constant POOL_CREATOR_ADMIN_ROLE = keccak256("POOL_CREATOR_ADMIN_ROLE");
+
+    /**
+     * @dev Emitted when a new pool is created
+     * @param pool The address of the new pool
+     */
+    event CreatePool(address pool);
 
     /**
      * @dev Constructor for Valtz contract.
@@ -42,6 +47,6 @@ contract Valtz is AccessControl {
     function _createPool(IValtzPool.PoolConfig memory config) internal returns (address pool) {
         pool = Clones.clone(poolImplementation);
         IValtzPool(pool).initialize(config);
-        emit ValtzEvents.CreatePool(pool);
+        emit CreatePool(pool);
     }
 }
