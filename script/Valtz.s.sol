@@ -14,8 +14,7 @@ contract ValtzDeployScript is Script {
     function run() public returns (Valtz valtz) {
         vm.startBroadcast();
 
-        address roleAuthorityAddress =
-            vm.computeCreateAddress(msg.sender, vm.getNonce(msg.sender) + 1);
+        address roleAuthorityAddress = vm.computeCreateAddress(msg.sender, vm.getNonce(msg.sender) + 1);
 
         ValtzPool impl = new ValtzPool(IRoleAuthority(roleAuthorityAddress));
 

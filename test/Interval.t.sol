@@ -23,9 +23,7 @@ contract IntervalTest is Test {
         LibInterval.Interval memory a = LibInterval.Interval(100, 150);
         LibInterval.Interval memory b = LibInterval.Interval(150, 200);
 
-        assertFalse(
-            LibInterval.overlap(a, b), "Adjacent intervals should not be considered overlapping"
-        );
+        assertFalse(LibInterval.overlap(a, b), "Adjacent intervals should not be considered overlapping");
     }
 
     function testContainedInterval() public pure {
@@ -70,16 +68,12 @@ contract IntervalTest is Test {
         intervals[1] = LibInterval.Interval(200, 225);
         intervals[2] = LibInterval.Interval(125, 175);
 
-        assertTrue(
-            LibInterval.overlapsAny(a, intervals), "Should overlap with at least one interval"
-        );
+        assertTrue(LibInterval.overlapsAny(a, intervals), "Should overlap with at least one interval");
 
         LibInterval.Interval[] memory noOverlapIntervals = new LibInterval.Interval[](2);
         noOverlapIntervals[0] = LibInterval.Interval(50, 75);
         noOverlapIntervals[1] = LibInterval.Interval(200, 225);
 
-        assertFalse(
-            LibInterval.overlapsAny(a, noOverlapIntervals), "Should not overlap with any interval"
-        );
+        assertFalse(LibInterval.overlapsAny(a, noOverlapIntervals), "Should not overlap with any interval");
     }
 }

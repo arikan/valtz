@@ -15,11 +15,7 @@ library LibInterval {
         return (a.start <= b.start && b.start < a.end) || (b.start <= a.start && a.start < b.end);
     }
 
-    function overlapsAny(Interval memory a, Interval[] memory intervals)
-        internal
-        pure
-        returns (bool)
-    {
+    function overlapsAny(Interval memory a, Interval[] memory intervals) internal pure returns (bool) {
         for (uint256 i = 0; i < intervals.length; i++) {
             if (overlap(a, intervals[i])) {
                 return true;
