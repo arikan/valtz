@@ -92,6 +92,14 @@ forge script script/Valtz.s.sol --rpc-url fuji --broadcast --verify
 # + your private key, account, etc
 ```
 
+Test token
+
+```sh
+TOKEN_NAME="ValtzTest" TOKEN_SYMBOL="VLTZ-T" \
+forge script script/OpenToken.s.sol --rpc-url fuji --broadcast --verify
+# + your private key, account, etc
+```
+
 ### Create ABIs
 
 ```sh
