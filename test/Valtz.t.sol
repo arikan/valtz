@@ -23,7 +23,7 @@ contract ValtzTest is Test {
             symbol: "TPOOL",
             subnetID: bytes32(0),
             poolTerm: 3 * 365 days,
-            token: IERC20(makeAddr("token")),
+            token: IERC20Metadata(makeAddr("token")),
             validatorDuration: 30 days,
             validatorRedeemable: 100 * 1e18,
             max: 100 ether,

@@ -5,6 +5,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -29,7 +30,7 @@ interface IValtzPool {
         string symbol;
         bytes32 subnetID;
         uint40 poolTerm;
-        IERC20 token;
+        IERC20Metadata token;
         uint40 validatorDuration;
         uint256 validatorRedeemable;
         uint256 max;
@@ -40,6 +41,7 @@ interface IValtzPool {
 }
 
 contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable2StepUpgradeable {
+    using SafeERC20 for IERC20Metadata;
     using SafeERC20 for IERC20;
     using Address for address payable;
     using LibInterval for LibInterval.Interval;
@@ -143,7 +145,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     uint40 public poolTerm;
 
     /// @notice The token that is being staked in the pool
-    IERC20 public token;
+    IERC20Metadata public token;
 
     /// @notice The required amount of time a validator must have validated in order to redeem
     uint40 public validatorDuration;
@@ -169,6 +171,8 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     /// @notice The total amount staked
     uint256 public availableRewards;
 
+    uint8 internal _decimals;
+
     mapping(bytes32 => LibInterval.Interval[]) private _validatorIntervals;
 
     constructor(IRoleAuthority _roleAuthority) {
@@ -188,11 +192,16 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
 
         subnetID = config.subnetID;
         token = config.token;
+        _decimals = config.token.decimals();
         poolTerm = config.poolTerm;
         validatorDuration = config.validatorDuration;
         max = config.max;
         boostRate = config.boostRate;
         validatorRedeemable = config.validatorRedeemable;
+    }
+
+    function decimals() public view virtual override returns (uint8) {
+        return _decimals;
     }
 
     /**

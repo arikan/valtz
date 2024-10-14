@@ -24,6 +24,10 @@ contract MockERC20 is ERC20 {
     function mint(address account, uint256 amount) external {
         _mint(account, amount);
     }
+
+    function decimals() public pure override returns (uint8) {
+        return 13;
+    }
 }
 
 contract ValtzPoolTest is Test {
@@ -89,6 +93,10 @@ contract ValtzPoolTest is Test {
         token.approve(address(pool), type(uint256).max);
 
         pool.start();
+    }
+
+    function test_poolDecimals() public view {
+        assertEq(pool.decimals(), token.decimals(), "Pool decimals should match token decimals");
     }
 
     event ValtzPoolDeposit(address indexed depositor, address indexed receiver, uint256 amount);
