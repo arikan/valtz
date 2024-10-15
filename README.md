@@ -19,7 +19,11 @@ Valtz protocol runs on Ethereum Virtual Machine (EVM) and offers a two-sided mar
 
 Similar to traditional commodity futures, Valtz validation futures are tradeable, enhancing security and growth of subnets while assessing the price of validation. Validators who join the pool early and later change their positions can sell their futures tokens to other validators who want to earn extra rewards from validation.
 
-## 🔨 Core Components
+## ⚙️ System
+
+![Valtz Smart Contract Overview Image](notes/valtz-smart-contract-diagram.png)
+
+## 🔨 Codebase Overview
 
 The Valtz protocol consists of two main contracts, as well as an offchain component:
 
