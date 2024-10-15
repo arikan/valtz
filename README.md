@@ -31,7 +31,7 @@ The Valtz protocol consists of two main contracts, as well as an offchain compon
 2. `ValtzPool.sol`: The individual pool contract
 3. The Valtz backend fetches and signs proof of validation from validators. See [initial notes on the data sources](notes/avalanche-validation-data.md)
 
-## Valtz.sol
+### Valtz.sol
 
 The `Valtz` contract is responsible for creating new pools and includes the following main functions:
 
