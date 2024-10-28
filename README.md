@@ -141,3 +141,5 @@ forge script script/OpenToken.s.sol --rpc-url localhost --broadcast --private-ke
 ## Mint OpenToken
 forge script script/OpenToken.s.sol --sig "mint(address,address,uint256)" TOKEN_ADDR RECIPIENT AMOUNT_BIGINT --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ```
+
+On Avalanche Fuji, `OpenToken` instance `VLTZ-T` is deployed to `0xE23FB6cACd6A07B47D3d208844613D12b0C24856`.
