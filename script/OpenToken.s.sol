@@ -23,4 +23,10 @@ contract ValtzDeployScript is Script {
 
         vm.stopBroadcast();
     }
+
+    function mint(OpenToken token, address to, uint256 amount) public {
+        vm.startBroadcast();
+        token.mint(to, amount);
+        vm.stopBroadcast();
+    }
 }

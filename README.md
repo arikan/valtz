@@ -99,6 +99,16 @@ forge build
 forge test
 ```
 
+### Local Deploy
+
+Using default anvil account 0:
+
+```sh
+forge script script/Valtz.s.sol --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+TOKEN_NAME="ValtzTest" TOKEN_SYMBOL="VLTZ-T" \
+forge script script/OpenToken.s.sol --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+```
+
 ### Deploy
 
 ```sh
