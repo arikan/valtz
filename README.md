@@ -99,16 +99,25 @@ forge build
 forge test
 ```
 
-### Local Deploy
+### Local Anvil Deployment
 
-Using default anvil account 0:
+Start Anvil:
+
+```sh
+anvil --chain-id 1337 # Chain ID 1337 is the default local chain ID
+```
+
+Using default anvil account to deploy Valtz, OpenToken, and mint OpenToken. Note the deploy addresses.
 
 ```sh
 forge script script/Valtz.s.sol --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-TOKEN_NAME="ValtzTest" TOKEN_SYMBOL="VLTZ-T" \
+
+## Deploy OpenToken with dev defaults with optional mint recipient
+RECIPIENT=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 \
+forge script script/OpenToken.s.sol --sig "dev()" --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ```
 
-### Deploy
+### Live Deploy
 
 ```sh
 forge script script/Valtz.s.sol --rpc-url fuji --broadcast --verify
@@ -128,18 +137,6 @@ forge script script/OpenToken.s.sol --rpc-url fuji --broadcast --verify
 ```sh
 forge inspect Valtz abi
 forge inspect ValtzPool abi
-```
-
-### Deploy and Mint `OpenToken` Test Tokens
-
-Examples here are deploying locally with anvil test account 0:
-
-```sh
-## Deploy OpenToken
-forge script script/OpenToken.s.sol --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-
-## Mint OpenToken
-forge script script/OpenToken.s.sol --sig "mint(address,address,uint256)" TOKEN_ADDR RECIPIENT AMOUNT_BIGINT --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ```
 
 On Avalanche Fuji, `OpenToken` instance `VLTZ-T` is deployed to `0xE23FB6cACd6A07B47D3d208844613D12b0C24856`.

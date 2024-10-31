@@ -29,4 +29,15 @@ contract ValtzDeployScript is Script {
         token.mint(to, amount);
         vm.stopBroadcast();
     }
+
+    function dev() public {
+        address recipient = vm.envOr("RECIPIENT", msg.sender);
+        vm.startBroadcast();
+        OpenToken token = new OpenToken("OpenToken", "OPNTKN");
+        token.mint(recipient, 1000000 * 10 ** token.decimals());
+        vm.stopBroadcast();
+        console2.log("Token address:     %s", address(token));
+        console2.log("Recipient address: %s", recipient);
+        console2.log("Recipient balance: %s", token.balanceOf(recipient));
+    }
 }
