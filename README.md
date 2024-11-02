@@ -23,6 +23,19 @@ Similar to traditional commodity futures, Valtz validation futures are tradeable
 
 ![Valtz Smart Contract Overview Image](notes/valtz-smart-contract-diagram.png)
 
+The Valtz protocol operates as a smart contract, streamlining how chains and validators commit to long-term validation. Here’s how it works:
+
+1. A chain team creates a pool (or vault) by depositing some their staking tokens as rewards. They also define terms such as the required duration for validation, start and end times, and the reward rates for validators’ commitments.
+
+2.  Users who hold the chain’s native tokens—whether from an airdrop or the market—can deposit these tokens into the pool. In return, they mint a futures token for that chain.
+
+3. Users can trade these futures tokens on the open market, which enables price discovery and hedging risks.
+
+4. Those who validate the chain and hold their futures tokens can redeem their rewards.
+
+5. Validators submit their proof of validation and burn their futures token, which unlocks both the original deposit and the earned rewards.
+
+
 ## 🔨 Codebase Overview
 
 The Valtz protocol consists of two main contracts, as well as an offchain component:
