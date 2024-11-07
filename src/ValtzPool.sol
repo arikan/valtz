@@ -102,7 +102,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         uint256 chainId;
         address target;
         uint40 signedAt;
-        bytes32 nodeID;
+        bytes20 nodeID;
         bytes32 subnetID;
         address redeemer;
         uint40 duration;
@@ -173,7 +173,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
 
     uint8 internal _decimals;
 
-    mapping(bytes32 => LibInterval.Interval[]) private _validatorIntervals;
+    mapping(bytes20 => LibInterval.Interval[]) private _validatorIntervals;
 
     constructor(IRoleAuthority _roleAuthority) {
         roleAuthority = _roleAuthority;
@@ -364,7 +364,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
      * @param nodeID The unique identifier of the validator node.
      * @return An array of intervals during which the validator node was active.
      */
-    function validatorIntervals(bytes32 nodeID) public view returns (LibInterval.Interval[] memory) {
+    function validatorIntervals(bytes20 nodeID) public view returns (LibInterval.Interval[] memory) {
         return _validatorIntervals[nodeID];
     }
 
@@ -398,7 +398,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         }
     }
 
-    function _consumeInterval(bytes32 nodeID, LibInterval.Interval memory interval) internal {
+    function _consumeInterval(bytes20 nodeID, LibInterval.Interval memory interval) internal {
         LibInterval.Interval[] storage intervals = _validatorIntervals[nodeID];
         if (interval.overlapsAny(intervals)) {
             revert IntervalOverlap();

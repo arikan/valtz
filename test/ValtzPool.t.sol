@@ -129,7 +129,7 @@ contract ValtzPoolTest is Test {
             chainId: block.chainid,
             target: address(pool),
             signedAt: uint40(block.timestamp),
-            nodeID: pool.subnetID(),
+            nodeID: bytes20(pool.subnetID()),
             subnetID: bytes32(0),
             redeemer: user1,
             duration: pool.validatorDuration(),
