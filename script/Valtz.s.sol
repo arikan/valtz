@@ -26,4 +26,16 @@ contract ValtzDeployScript is Script {
 
         vm.stopBroadcast();
     }
+
+    function addSigner(Valtz valtz, address signer) public {
+        vm.startBroadcast();
+        valtz.grantRole(valtz.VALTZ_SIGNER_ROLE(), signer);
+        vm.stopBroadcast();
+    }
+
+    function revokeSigner(Valtz valtz, address signer) public {
+        vm.startBroadcast();
+        valtz.revokeRole(valtz.VALTZ_SIGNER_ROLE(), signer);
+        vm.stopBroadcast();
+    }
 }

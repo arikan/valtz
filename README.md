@@ -35,7 +35,6 @@ The Valtz protocol operates as a smart contract, streamlining how chains and val
 
 5. Validators submit their proof of validation and burn their futures token, which unlocks both the original deposit and the earned rewards.
 
-
 ## 🔨 Codebase Overview
 
 The Valtz protocol consists of two main contracts, as well as an offchain component:
@@ -128,6 +127,9 @@ forge script script/Valtz.s.sol --rpc-url localhost --broadcast --private-key 0x
 ## Deploy OpenToken with dev defaults with optional mint recipient
 RECIPIENT=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 \
 forge script script/OpenToken.s.sol --sig "dev()" --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+
+## Add a signer
+forge script script/Valtz.s.sol --sig "addSigner(address,address)" 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720 --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ```
 
 ### Live Deploy

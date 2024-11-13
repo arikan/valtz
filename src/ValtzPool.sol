@@ -76,7 +76,10 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     ///////////////////////////////////////////////////////////////////////// */
 
     error RedeemAmountTooHigh(uint256);
+    error RedeemAmountExceedsTotalDeposited(uint256);
+    error RewardAmountExceedsAvailableRewards(uint256);
     error InvalidSignedAt(uint40);
+    error ExpiredSignedAt(uint40);
     error NullReceiver();
     error InvalidSigner(address);
     error InvalidChainId(uint256);
@@ -245,6 +248,10 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         if (amount > validatorRedeemable) {
             revert RedeemAmountTooHigh(amount);
         }
+        if (amount > totalDeposited) {
+            revert RedeemAmountExceedsTotalDeposited(amount);
+        }
+
         if (receiver == address(0)) {
             revert NullReceiver();
         }
@@ -264,6 +271,11 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         totalDeposited -= amount;
         _burn(msg.sender, amount);
         uint256 rewardAmount = calculateReward(amount);
+
+        if (rewardAmount > availableRewards) {
+            revert RewardAmountExceedsAvailableRewards(rewardAmount);
+        }
+
         availableRewards -= rewardAmount;
         withdrawAmount = amount + rewardAmount;
         token.safeTransfer(receiver, withdrawAmount);
@@ -381,8 +393,12 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
             revert InvalidTarget(data.target);
         }
 
-        if (block.timestamp < data.signedAt || block.timestamp > data.signedAt + VALTZ_SIGNATURE_TTL) {
+        if (block.timestamp < data.signedAt) {
             revert InvalidSignedAt(data.signedAt);
+        }
+
+        if (block.timestamp > data.signedAt + VALTZ_SIGNATURE_TTL) {
+            revert ExpiredSignedAt(data.signedAt);
         }
 
         if (data.subnetID != subnetID) {
