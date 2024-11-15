@@ -13,11 +13,16 @@ contract Valtz is AccessControl {
     bytes32 public constant VALTZ_SIGNER_ROLE = _VALTZ_SIGNER_ROLE;
     bytes32 public constant POOL_CREATOR_ADMIN_ROLE = keccak256("POOL_CREATOR_ADMIN_ROLE");
 
+    // Registry of pools by subnetId
+    mapping(bytes32 => address[]) public poolsBySubnet;
+
     /**
      * @dev Emitted when a new pool is created
-     * @param pool The address of the new pool
+     * @param pool The address of the new pool (indexed)
+     * @param subnetId The subnet ID from the pool config (indexed)
+     * @param creator The address that created the pool (indexed)
      */
-    event CreatePool(address pool);
+    event CreatePool(address indexed pool, bytes32 indexed subnetId, address indexed creator);
 
     /**
      * @dev Constructor for Valtz contract.
@@ -47,6 +52,10 @@ contract Valtz is AccessControl {
     function _createPool(IValtzPool.PoolConfig memory config) internal returns (address pool) {
         pool = Clones.clone(poolImplementation);
         IValtzPool(pool).initialize(config);
-        emit CreatePool(pool);
+
+        // Add pool to registry
+        poolsBySubnet[config.subnetID].push(pool);
+
+        emit CreatePool(pool, config.subnetID, msg.sender);
     }
 }

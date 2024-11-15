@@ -49,13 +49,43 @@ contract ValtzTest is Test {
         assertTrue(poolImpl != address(0), "Pool implementation should be set");
     }
 
-    event CreatePool(address);
+    event CreatePool(address indexed pool, bytes32 indexed subnetId, address indexed creator);
 
     function testCreatePool() public {
-        vm.expectEmit(false, false, false, false);
-        emit CreatePool(0x104fBc016F4bb334D775a19E8A6510109AC63E00);
+        vm.expectEmit(true, true, true, false);
+        emit CreatePool(0x104fBc016F4bb334D775a19E8A6510109AC63E00, poolConfig.subnetID, address(this));
         address pool = valtz.createPool(poolConfig);
         assertNotEq(pool, address(0), "Pool should be created");
+    }
+
+    function testPoolRegistry() public {
+        // Create pools with different subnet IDs
+        bytes32 subnet1 = bytes32(uint256(1));
+        bytes32 subnet2 = bytes32(uint256(2));
+
+        poolConfig.subnetID = subnet1;
+        address pool1 = valtz.createPool(poolConfig);
+
+        poolConfig.subnetID = subnet1;
+        address pool2 = valtz.createPool(poolConfig);
+
+        poolConfig.subnetID = subnet2;
+        address pool3 = valtz.createPool(poolConfig);
+
+        // Check pools are registered correctly for subnet1
+        assertEq(valtz.poolsBySubnet(subnet1, 0), pool1, "First pool in subnet1 should match");
+        assertEq(valtz.poolsBySubnet(subnet1, 1), pool2, "Second pool in subnet1 should match");
+        vm.expectRevert(); // Should revert when accessing index 2
+        valtz.poolsBySubnet(subnet1, 2);
+
+        // Check pools are registered correctly for subnet2
+        assertEq(valtz.poolsBySubnet(subnet2, 0), pool3, "Pool in subnet2 should match");
+        vm.expectRevert(); // Should revert when accessing index 1
+        valtz.poolsBySubnet(subnet2, 1);
+
+        // Check empty subnet reverts on any access
+        vm.expectRevert();
+        valtz.poolsBySubnet(bytes32(uint256(999)), 0);
     }
 
     function testAdminGrantRole() public {
