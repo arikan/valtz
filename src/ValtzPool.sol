@@ -95,6 +95,8 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     error MustStartInCurrentOrFutureBlock();
     error PoolNotActive();
     error CannotRescuePrimaryToken();
+    error IntervalContainsPoolStart();
+    error IntervalEndsInFuture();
     error IntervalOverlap();
 
     /* /////////////////////////////////////////////////////////////////////////
@@ -416,6 +418,12 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
 
     function _consumeInterval(bytes20 nodeID, LibInterval.Interval memory interval) internal {
         LibInterval.Interval[] storage intervals = _validatorIntervals[nodeID];
+        if (interval.contains(startTime)) {
+            revert IntervalContainsPoolStart();
+        }
+        if (interval.end > block.timestamp) {
+            revert IntervalEndsInFuture();
+        }
         if (interval.overlapsAny(intervals)) {
             revert IntervalOverlap();
         }
