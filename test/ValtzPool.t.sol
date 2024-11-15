@@ -30,6 +30,15 @@ contract MockERC20 is ERC20 {
     }
 }
 
+// Mock token that reverts on decimals()
+contract RevertingMockERC20 is ERC20 {
+    constructor() ERC20("Reverting Mock Token", "RMT") {}
+
+    function decimals() public pure override returns (uint8) {
+        revert("decimals() reverted");
+    }
+}
+
 contract ValtzPoolTest is Test {
     ValtzPool public pool;
     MockERC20 public token;
@@ -47,18 +56,8 @@ contract ValtzPoolTest is Test {
     uint24 constant BOOST_RATE = 1100000; // 110%
     uint256 constant VALIDATOR_REDEEMABLE = 100 * 1e18;
 
-    function setUp() public {
-        owner = address(this);
-        user1 = address(0x1);
-        user2 = address(0x2);
-        roleAuthority = address(0xaa);
-
-        valtzSigner = vm.createWallet("Valtz Signer");
-        pChainNodeRewardSigner = vm.createWallet("P-Chain Node Reward Signer");
-
-        token = new MockERC20();
-
-        ValtzPool.PoolConfig memory config = IValtzPool.PoolConfig({
+    function getDefaultConfig() internal view returns (IValtzPool.PoolConfig memory) {
+        return IValtzPool.PoolConfig({
             owner: owner,
             name: "Test Pool",
             symbol: "TPOOL",
@@ -70,8 +69,26 @@ contract ValtzPoolTest is Test {
             max: MAX_DEPOSIT,
             boostRate: BOOST_RATE
         });
-        pool = ValtzPool(Clones.clone(address(new ValtzPool(IRoleAuthority(roleAuthority)))));
-        pool.initialize(config);
+    }
+
+    function deployPool(IValtzPool.PoolConfig memory config) internal returns (ValtzPool) {
+        ValtzPool implementation = new ValtzPool(IRoleAuthority(roleAuthority));
+        ValtzPool newPool = ValtzPool(Clones.clone(address(implementation)));
+        newPool.initialize(config);
+        return newPool;
+    }
+
+    function setUp() public {
+        owner = address(this);
+        user1 = address(0x1);
+        user2 = address(0x2);
+        roleAuthority = address(0xaa);
+
+        valtzSigner = vm.createWallet("Valtz Signer");
+        pChainNodeRewardSigner = vm.createWallet("P-Chain Node Reward Signer");
+
+        token = new MockERC20();
+        pool = deployPool(getDefaultConfig());
 
         vm.mockCall(
             roleAuthority,
@@ -95,6 +112,84 @@ contract ValtzPoolTest is Test {
         pool.start();
     }
 
+    function test_initialization() public {
+        ValtzPool newPool = deployPool(getDefaultConfig());
+
+        assertEq(newPool.owner(), owner);
+        assertEq(address(newPool.token()), address(token));
+        assertEq(newPool.poolTerm(), 3 * 365 days);
+        assertEq(newPool.validatorDuration(), 30 days);
+        assertEq(newPool.validatorRedeemable(), VALIDATOR_REDEEMABLE);
+        assertEq(newPool.max(), MAX_DEPOSIT);
+        assertEq(newPool.boostRate(), BOOST_RATE);
+    }
+
+    function test_initializeZeroOwner() public {
+        IValtzPool.PoolConfig memory config = getDefaultConfig();
+        config.owner = address(0);
+
+        ValtzPool implementation = new ValtzPool(IRoleAuthority(roleAuthority));
+        ValtzPool newPool = ValtzPool(Clones.clone(address(implementation)));
+
+        vm.expectRevert(abi.encodeWithSelector(ValtzPool.ZeroOwnerAddress.selector));
+        newPool.initialize(config);
+    }
+
+    function test_initializeZeroToken() public {
+        IValtzPool.PoolConfig memory config = getDefaultConfig();
+        config.token = IERC20Metadata(address(0));
+
+        ValtzPool implementation = new ValtzPool(IRoleAuthority(roleAuthority));
+        ValtzPool newPool = ValtzPool(Clones.clone(address(implementation)));
+
+        vm.expectRevert(abi.encodeWithSelector(ValtzPool.ZeroTokenAddress.selector));
+        newPool.initialize(config);
+    }
+
+    function test_initializeZeroPoolTerm() public {
+        IValtzPool.PoolConfig memory config = getDefaultConfig();
+        config.poolTerm = 0;
+
+        ValtzPool implementation = new ValtzPool(IRoleAuthority(roleAuthority));
+        ValtzPool newPool = ValtzPool(Clones.clone(address(implementation)));
+
+        vm.expectRevert(abi.encodeWithSelector(ValtzPool.ZeroPoolTerm.selector));
+        newPool.initialize(config);
+    }
+
+    function test_initializeZeroValidatorDuration() public {
+        IValtzPool.PoolConfig memory config = getDefaultConfig();
+        config.validatorDuration = 0;
+
+        ValtzPool implementation = new ValtzPool(IRoleAuthority(roleAuthority));
+        ValtzPool newPool = ValtzPool(Clones.clone(address(implementation)));
+
+        vm.expectRevert(abi.encodeWithSelector(ValtzPool.ZeroValidatorDuration.selector));
+        newPool.initialize(config);
+    }
+
+    function test_initializeValidatorRedeemableExceedsMax() public {
+        IValtzPool.PoolConfig memory config = getDefaultConfig();
+        config.validatorRedeemable = config.max + 1;
+
+        ValtzPool implementation = new ValtzPool(IRoleAuthority(roleAuthority));
+        ValtzPool newPool = ValtzPool(Clones.clone(address(implementation)));
+
+        vm.expectRevert(abi.encodeWithSelector(ValtzPool.ValidatorRedeemableExceedsMax.selector));
+        newPool.initialize(config);
+    }
+
+    function test_initializeTokenDecimalsError() public {
+        IValtzPool.PoolConfig memory config = getDefaultConfig();
+        config.token = new RevertingMockERC20();
+
+        ValtzPool implementation = new ValtzPool(IRoleAuthority(roleAuthority));
+        ValtzPool newPool = ValtzPool(Clones.clone(address(implementation)));
+
+        vm.expectRevert(abi.encodeWithSelector(ValtzPool.TokenDecimalsError.selector));
+        newPool.initialize(config);
+    }
+
     function test_poolDecimals() public view {
         assertEq(pool.decimals(), token.decimals(), "Pool decimals should match token decimals");
     }
@@ -113,8 +208,6 @@ contract ValtzPoolTest is Test {
         assertEq(token.balanceOf(user1), INITIAL_BALANCE - depositAmount);
         assertEq(pool.balanceOf(user1), depositAmount);
     }
-
-    /// Owner-only
 
     function test_nonOwnerReverts(address payable user) public {
         vm.assume(user != pool.owner());
@@ -136,18 +229,7 @@ contract ValtzPoolTest is Test {
 
         vm.expectRevert(unauthorized);
         pool.rescueERC721(IERC721(address(0xaa)), 1, user);
-
-        vm.expectRevert(unauthorized);
-        pool.rescueERC1155(IERC1155(address(0xaa)), 1, user, 100);
-
-        vm.expectRevert(unauthorized);
-        pool.rescueERC721(IERC721(address(0xaa)), 1, user);
-
-        vm.expectRevert(unauthorized);
-        pool.rescueNative(user, 1 ether);
     }
-
-    /// Rescue functions
 
     function test_rescueERC20_primaryToken() public {
         uint256 rescueAmount = 100 * 1e18;

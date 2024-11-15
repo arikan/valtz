@@ -95,6 +95,12 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     error IntervalContainsPoolStart();
     error IntervalEndsInFuture();
     error IntervalOverlap();
+    error ZeroOwnerAddress();
+    error ZeroTokenAddress();
+    error ZeroPoolTerm();
+    error ZeroValidatorDuration();
+    error ValidatorRedeemableExceedsMax();
+    error TokenDecimalsError();
 
     /* /////////////////////////////////////////////////////////////////////////
                                     STRUCTS
@@ -188,13 +194,30 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
      * @param config The configuration parameters for the pool.
      */
     function initialize(PoolConfig memory config) external override initializer {
+        // Zero address checks
+        if (config.owner == address(0)) revert ZeroOwnerAddress();
+        if (address(config.token) == address(0)) revert ZeroTokenAddress();
+
+        // Non-zero duration checks
+        if (config.poolTerm == 0) revert ZeroPoolTerm();
+        if (config.validatorDuration == 0) revert ZeroValidatorDuration();
+
+        // Check validatorRedeemable doesn't exceed max
+        if (config.validatorRedeemable > config.max) revert ValidatorRedeemableExceedsMax();
+
+        // Check token decimals
+        try config.token.decimals() returns (uint8 decimals_) {
+            _decimals = decimals_;
+        } catch {
+            revert TokenDecimalsError();
+        }
+
         __ERC20_init(config.name, config.symbol);
         __ERC20Permit_init(config.name);
         _transferOwnership(config.owner);
 
         subnetID = config.subnetID;
         token = config.token;
-        _decimals = config.token.decimals();
         poolTerm = config.poolTerm;
         validatorDuration = config.validatorDuration;
         max = config.max;
