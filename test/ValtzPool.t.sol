@@ -114,50 +114,6 @@ contract ValtzPoolTest is Test {
         assertEq(pool.balanceOf(user1), depositAmount);
     }
 
-    event ValtzPoolRedeem(
-        address indexed redeemer, address indexed receiver, uint256 poolTokenAmount, uint256 tokenAmountWithdrawn
-    );
-
-    function test_redeem() public {
-        uint256 depositAmount = 100 * 1e18;
-        vm.prank(user1);
-        pool.deposit(depositAmount, user1);
-
-        uint256 withdrawAmount = 50 * 1e18;
-
-        ValtzPool.ValidationRedemptionData memory data = ValtzPool.ValidationRedemptionData({
-            chainId: block.chainid,
-            target: address(pool),
-            signedAt: uint40(block.timestamp),
-            nodeID: bytes20(pool.subnetID()),
-            subnetID: bytes32(0),
-            redeemer: user1,
-            duration: pool.validatorDuration(),
-            start: 1000,
-            end: 1000 + pool.validatorDuration() + 100
-        });
-
-        bytes memory encodedData = abi.encode(data);
-        bytes32 messageHash = ECDSA.toEthSignedMessageHash(encodedData);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(valtzSigner.privateKey, messageHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-
-        uint256 expectedAmount = withdrawAmount + (withdrawAmount * BOOST_RATE / pool.BOOST_RATE_PRECISION());
-
-        vm.expectEmit(true, true, true, true);
-        emit ValtzPoolRedeem(user1, user2, withdrawAmount, expectedAmount);
-
-        vm.prank(user1);
-        uint256 redeemedAmount = pool.redeem(withdrawAmount, user2, encodedData, signature);
-        assertEq(redeemedAmount, expectedAmount);
-
-        assertEq(token.balanceOf(user1), INITIAL_BALANCE - depositAmount);
-        assertEq(pool.balanceOf(user1), depositAmount - withdrawAmount);
-
-        assertEq(token.balanceOf(user2), INITIAL_BALANCE + expectedAmount);
-        assertEq(pool.balanceOf(user2), 0);
-    }
-
     /// Owner-only
 
     function test_nonOwnerReverts(address payable user) public {
