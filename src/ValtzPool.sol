@@ -15,9 +15,6 @@ import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/
 import {ERC20PermitUpgradeable} from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-// import {MessageHashUtils} from "@openzeppelin/contracts-upgradeable/utils/cryptography/MessageHashUtilsUpgradeable.sol";
-
-// import {console2} from "forge-std/console2.sol";
 
 import "./lib/Interval.sol";
 import "./ValtzConstants.sol";
@@ -244,7 +241,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
      */
     function redeem(uint256 amount, address receiver, bytes memory valtzSignedData, bytes memory valtzSignature)
         public
-        onlyActive
+        onlyStarted
         returns (uint256 withdrawAmount)
     {
         if (amount > validatorRedeemable) {
@@ -468,6 +465,13 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
 
     modifier onlyActive() {
         if (!started || isClosed()) {
+            revert PoolNotActive();
+        }
+        _;
+    }
+
+    modifier onlyStarted() {
+        if (!started) {
             revert PoolNotActive();
         }
         _;

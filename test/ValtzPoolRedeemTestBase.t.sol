@@ -26,7 +26,7 @@ contract MockERC20 is ERC20 {
     }
 }
 
-contract ValtzPoolRedeemTest is Test {
+abstract contract ValtzPoolRedeemTestBase is Test {
     ValtzPool public pool;
     MockERC20 public token;
     address roleAuthority;
@@ -37,12 +37,19 @@ contract ValtzPoolRedeemTest is Test {
 
     Vm.Wallet public valtzSigner;
 
+    // Constants
     uint256 constant INITIAL_BALANCE = 1000 * 1e18;
     uint256 constant MAX_DEPOSIT = 1000000 * 1e18;
     uint24 constant BOOST_RATE = 1100000; // 110%
     uint256 constant VALIDATOR_REDEEMABLE = 100 * 1e18;
+    uint40 constant BASE_START = 1000;
+    uint40 constant EXTRA_DURATION = 100;
 
-    function setUp() public {
+    event ValtzPoolRedeem(
+        address indexed redeemer, address indexed receiver, uint256 poolTokenAmount, uint256 tokenAmountWithdrawn
+    );
+
+    function setUp() public virtual {
         owner = address(this);
         user1 = address(0x1);
         user2 = address(0x2);
@@ -89,50 +96,50 @@ contract ValtzPoolRedeemTest is Test {
         pool.start();
     }
 
-    event ValtzPoolRedeem(
-        address indexed redeemer, address indexed receiver, uint256 poolTokenAmount, uint256 tokenAmountWithdrawn
-    );
-
-    function test_redeem() public {
-        uint256 depositAmount = 100 * 1e18;
-        vm.prank(user1);
-        pool.deposit(depositAmount, user1);
-
-        uint256 withdrawAmount = 50 * 1e18;
-
-        // Ensure the interval we submit is in the past
-        vm.warp(1000 + pool.validatorDuration() + 200);
-
-        ValtzPool.ValidationRedemptionData memory data = ValtzPool.ValidationRedemptionData({
+    function _createValidationData(
+        address target,
+        address redeemer,
+        uint40 start,
+        uint40 end,
+        bytes20 nodeID,
+        bytes32 subnetID
+    ) internal view returns (ValtzPool.ValidationRedemptionData memory) {
+        return ValtzPool.ValidationRedemptionData({
             chainId: block.chainid,
-            target: address(pool),
+            target: target,
             signedAt: uint40(block.timestamp),
-            nodeID: bytes20(pool.subnetID()),
-            subnetID: bytes32(0),
-            redeemer: user1,
+            nodeID: nodeID,
+            subnetID: subnetID,
+            redeemer: redeemer,
             duration: pool.validatorDuration(),
-            start: 1000,
-            end: 1000 + pool.validatorDuration() + 100
+            start: start,
+            end: end
         });
+    }
 
+    function _signValidationData(ValtzPool.ValidationRedemptionData memory data, uint256 signerKey)
+        internal
+        pure
+        returns (bytes memory)
+    {
         bytes memory encodedData = abi.encode(data);
         bytes32 messageHash = ECDSA.toEthSignedMessageHash(encodedData);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(valtzSigner.privateKey, messageHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerKey, messageHash);
+        return abi.encodePacked(r, s, v);
+    }
 
-        uint256 expectedAmount = withdrawAmount + (withdrawAmount * BOOST_RATE / pool.BOOST_RATE_PRECISION());
+    function _setupRedemption(address user, uint256 amount) internal returns (uint40 start, uint40 end) {
+        vm.prank(user);
+        pool.deposit(amount, user);
 
-        vm.expectEmit(true, true, true, true);
-        emit ValtzPoolRedeem(user1, user2, withdrawAmount, expectedAmount);
+        start = BASE_START;
+        end = uint40(start + pool.validatorDuration() + EXTRA_DURATION);
+        vm.warp(end + EXTRA_DURATION);
 
-        vm.prank(user1);
-        uint256 redeemedAmount = pool.redeem(withdrawAmount, user2, encodedData, signature);
-        assertEq(redeemedAmount, expectedAmount);
+        return (start, end);
+    }
 
-        assertEq(token.balanceOf(user1), INITIAL_BALANCE - depositAmount);
-        assertEq(pool.balanceOf(user1), depositAmount - withdrawAmount);
-
-        assertEq(token.balanceOf(user2), INITIAL_BALANCE + expectedAmount);
-        assertEq(pool.balanceOf(user2), 0);
+    function _calculateExpectedAmount(uint256 amount) internal view returns (uint256) {
+        return amount + (amount * BOOST_RATE / pool.BOOST_RATE_PRECISION());
     }
 }
