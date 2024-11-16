@@ -15,6 +15,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import "../src/ValtzConstants.sol";
 import "../src/lib/Interval.sol";
 import "../src/ValtzPool.sol";
+import "../src/lib/DemoMode.sol";
 import "../src/interfaces/IRoleAuthority.sol";
 
 // Minimal MockERC20 contract
@@ -335,7 +336,7 @@ contract ValtzPoolTest is Test {
 
         // Reverts on mainnet
         vm.chainId(1);
-        vm.expectRevert(abi.encodeWithSelector(ValtzPool.DemoModeNotAllowed.selector));
+        vm.expectRevert(abi.encodeWithSelector(DemoMode.DemoModeNotAllowed.selector));
         pool.setDemoMode(true);
     }
 }

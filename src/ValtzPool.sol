@@ -17,7 +17,8 @@ import {ERC20PermitUpgradeable} from
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 import "./lib/Interval.sol";
-import {VALTZ_SIGNER_ROLE, FUJI_CHAIN_ID, HARDHAT_CHAIN_ID, GANACHE_CHAIN_ID} from "./ValtzConstants.sol";
+import "./lib/DemoMode.sol";
+import {VALTZ_SIGNER_ROLE} from "./ValtzConstants.sol";
 import "./interfaces/IRoleAuthority.sol";
 
 interface IValtzPool {
@@ -35,9 +36,10 @@ interface IValtzPool {
     }
 
     function initialize(PoolConfig memory config) external;
+    function initialize(PoolConfig memory config, bool _demoMode) external;
 }
 
-contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable2StepUpgradeable {
+contract ValtzPool is IValtzPool, DemoMode, Initializable, ERC20PermitUpgradeable, Ownable2StepUpgradeable {
     using SafeERC20 for IERC20Metadata;
     using SafeERC20 for IERC20;
     using Address for address payable;
@@ -101,10 +103,9 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     error ZeroValidatorDuration();
     error ValidatorRedeemableExceedsMax();
     error TokenDecimalsError();
-    error DemoModeNotAllowed();
 
     /* /////////////////////////////////////////////////////////////////////////
-                                    STRUCTS
+                                        STRUCTS
     ///////////////////////////////////////////////////////////////////////// */
 
     struct ValidationRedemptionData {
@@ -120,7 +121,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     }
 
     /* /////////////////////////////////////////////////////////////////////////
-                                    CONSTANTS
+                                        CONSTANTS
     ///////////////////////////////////////////////////////////////////////// */
 
     /**
@@ -182,9 +183,6 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
 
     uint8 internal _decimals;
 
-    /// @notice Whether the pool is in demo mode, which relaxes validation checks for redemption
-    bool public demoMode;
-
     mapping(bytes20 => LibInterval.Interval[]) private _validatorIntervals;
 
     constructor(IRoleAuthority _roleAuthority) {
@@ -192,12 +190,20 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         _disableInitializers();
     }
 
-    /**
-     * @notice Initializes the ValtzPool contract with the given configuration.
-     * @dev This function can only be called once due to the `initializer` modifier.
-     * @param config The configuration parameters for the pool.
-     */
     function initialize(PoolConfig memory config) external override initializer {
+        _initialize(config, false);
+    }
+
+    function initialize(PoolConfig memory config, bool _demoMode) external override initializer {
+        _initialize(config, _demoMode);
+    }
+
+    function _initialize(PoolConfig memory config, bool _demoMode) internal {
+        // Initialize inherited contracts
+        __ERC20_init(config.name, config.symbol);
+        __ERC20Permit_init(config.name);
+        __Ownable2Step_init_unchained();
+
         // Zero address checks
         if (config.owner == address(0)) revert ZeroOwnerAddress();
         if (address(config.token) == address(0)) revert ZeroTokenAddress();
@@ -216,8 +222,6 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
             revert TokenDecimalsError();
         }
 
-        __ERC20_init(config.name, config.symbol);
-        __ERC20Permit_init(config.name);
         _transferOwnership(config.owner);
 
         subnetID = config.subnetID;
@@ -227,6 +231,11 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         max = config.max;
         boostRate = config.boostRate;
         validatorRedeemable = config.validatorRedeemable;
+
+        // Set demo mode
+        if (_demoMode) {
+            _setDemoMode(true);
+        }
     }
 
     function decimals() public view virtual override returns (uint8) {
@@ -340,16 +349,17 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         emit ValtzPoolStart(_startTime);
     }
 
+    /**
+     * @notice Sets the demo mode state
+     * @dev This function can only be called by the owner
+     * @param _demoMode The demo mode state to set
+     */
     function setDemoMode(bool _demoMode) public onlyOwner {
-        if (block.chainid != FUJI_CHAIN_ID && block.chainid != HARDHAT_CHAIN_ID && block.chainid != GANACHE_CHAIN_ID) {
-            revert DemoModeNotAllowed();
-        }
-
-        demoMode = _demoMode;
+        _setDemoMode(_demoMode);
     }
 
     /* /////////////////////////////////////////////////////////////////////////
-                                    VIEW
+                                        VIEW
     ///////////////////////////////////////////////////////////////////////// */
 
     /**
@@ -465,7 +475,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     }
 
     /* /////////////////////////////////////////////////////////////////////////
-                                    RESCUE
+                                        RESCUE
     ///////////////////////////////////////////////////////////////////////// */
 
     function rescueERC20(IERC20 _token, address to, uint256 amount) public onlyOwner {
@@ -490,7 +500,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     }
 
     /* /////////////////////////////////////////////////////////////////////////
-                                    MODIFIERS
+                                        MODIFIERS
     ///////////////////////////////////////////////////////////////////////// */
 
     modifier onlyBeforeActive() {

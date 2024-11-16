@@ -7,8 +7,9 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {IValtzPool} from "./ValtzPool.sol";
 import {VALTZ_SIGNER_ROLE as _VALTZ_SIGNER_ROLE} from "./ValtzConstants.sol";
+import "./lib/DemoMode.sol";
 
-contract Valtz is AccessControl {
+contract Valtz is AccessControl, DemoMode {
     address public immutable poolImplementation;
     bytes32 public constant VALTZ_SIGNER_ROLE = _VALTZ_SIGNER_ROLE;
     bytes32 public constant POOL_CREATOR_ADMIN_ROLE = keccak256("POOL_CREATOR_ADMIN_ROLE");
@@ -29,7 +30,8 @@ contract Valtz is AccessControl {
      * @param defaultAdmin The address of the default admin.
      * @param _poolImplementation The address of the pool implementation contract.
      */
-    constructor(address defaultAdmin, address _poolImplementation) {
+    constructor(address defaultAdmin, address _poolImplementation, bool _demoMode) {
+        _setDemoMode(_demoMode);
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         poolImplementation = _poolImplementation;
     }
@@ -51,11 +53,20 @@ contract Valtz is AccessControl {
      */
     function _createPool(IValtzPool.PoolConfig memory config) internal returns (address pool) {
         pool = Clones.clone(poolImplementation);
-        IValtzPool(pool).initialize(config);
+        IValtzPool(pool).initialize(config, demoMode);
 
         // Add pool to registry
         poolsBySubnet[config.subnetID].push(pool);
 
         emit CreatePool(pool, config.subnetID, msg.sender);
+    }
+
+    /**
+     * @notice Sets the demo mode state
+     * @dev This function can only be called by the DEFAULT_ADMIN_ROLE
+     * @param _demoMode The demo mode state to set
+     */
+    function setDemoMode(bool _demoMode) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        _setDemoMode(_demoMode);
     }
 }

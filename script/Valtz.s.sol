@@ -18,7 +18,7 @@ contract ValtzDeployScript is Script {
 
         ValtzPool impl = new ValtzPool(IRoleAuthority(roleAuthorityAddress));
 
-        valtz = new Valtz(msg.sender, address(impl));
+        valtz = new Valtz(msg.sender, address(impl), true);
 
         if (address(valtz) != roleAuthorityAddress) {
             revert("Address mismatch");

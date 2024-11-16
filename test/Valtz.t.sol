@@ -5,17 +5,29 @@ import "forge-std/Test.sol";
 import "../src/Valtz.sol";
 import "../src/ValtzPool.sol";
 import "../src/interfaces/IRoleAuthority.sol";
+import "../src/lib/DemoMode.sol";
+
+// Minimal pool implementation for testing
+contract TestPool is IValtzPool, DemoMode {
+    function initialize(PoolConfig memory) external pure {
+        revert("Not implemented");
+    }
+
+    function initialize(PoolConfig memory, bool _demoMode) external {
+        _setDemoMode(_demoMode);
+    }
+}
 
 contract ValtzTest is Test {
     Valtz public valtz;
     address public defaultAdmin;
-    address public implementation;
+    TestPool public implementation;
 
     IValtzPool.PoolConfig public poolConfig;
 
     function setUp() public {
         defaultAdmin = makeAddr("defaultAdmin");
-        implementation = makeAddr("implementation");
+        implementation = new TestPool();
 
         poolConfig = IValtzPool.PoolConfig({
             owner: address(this),
@@ -30,14 +42,14 @@ contract ValtzTest is Test {
             boostRate: 100000
         });
 
-        valtz = new Valtz(defaultAdmin, implementation);
+        valtz = new Valtz(defaultAdmin, address(implementation), false);
     }
 
     function testConstruction() public view {
         assertNotEq(defaultAdmin, address(0));
 
         assertTrue(valtz.hasRole(valtz.DEFAULT_ADMIN_ROLE(), defaultAdmin), "Default admin role should be set");
-        assertTrue(valtz.poolImplementation() == implementation, "Pool implementation should be set");
+        assertTrue(valtz.poolImplementation() == address(implementation), "Pool implementation should be set");
     }
 
     function testDefaultAdminRole() public view {
@@ -52,8 +64,8 @@ contract ValtzTest is Test {
     event CreatePool(address indexed pool, bytes32 indexed subnetId, address indexed creator);
 
     function testCreatePool() public {
-        vm.expectEmit(true, true, true, false);
-        emit CreatePool(0x104fBc016F4bb334D775a19E8A6510109AC63E00, poolConfig.subnetID, address(this));
+        vm.expectEmit(false, true, true, false);
+        emit CreatePool(address(0), poolConfig.subnetID, address(this));
         address pool = valtz.createPool(poolConfig);
         assertNotEq(pool, address(0), "Pool should be created");
     }
@@ -92,5 +104,28 @@ contract ValtzTest is Test {
         address user = address(0xab);
         vm.startPrank(defaultAdmin);
         valtz.grantRole(valtz.VALTZ_SIGNER_ROLE(), user);
+    }
+
+    function testDemoModeAdmin() public {
+        // Only admin should be able to set demo mode
+        vm.prank(defaultAdmin);
+        valtz.setDemoMode(true);
+        assertTrue(valtz.demoMode(), "Demo mode should be enabled");
+
+        // Non-admin should not be able to set demo mode
+        address nonAdmin = makeAddr("nonAdmin");
+        vm.prank(nonAdmin);
+        vm.expectRevert();
+        valtz.setDemoMode(false);
+    }
+
+    function testPoolInheritsDemoMode() public {
+        // Set demo mode on Valtz
+        vm.prank(defaultAdmin);
+        valtz.setDemoMode(true);
+
+        // Create a pool and verify it inherits demo mode
+        address pool = valtz.createPool(poolConfig);
+        assertTrue(TestPool(pool).demoMode(), "Pool should inherit demo mode from Valtz");
     }
 }

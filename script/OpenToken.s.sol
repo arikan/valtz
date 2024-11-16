@@ -6,7 +6,7 @@ import "../src/OpenToken.sol";
 
 import "forge-std/console2.sol";
 
-contract ValtzDeployScript is Script {
+contract OpenTokenDeployScript is Script {
     function setUp() public {}
 
     function run() public returns (OpenToken token) {
