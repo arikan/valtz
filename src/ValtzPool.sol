@@ -17,7 +17,7 @@ import {ERC20PermitUpgradeable} from
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 import "./lib/Interval.sol";
-import "./ValtzConstants.sol";
+import {VALTZ_SIGNER_ROLE, FUJI_CHAIN_ID, HARDHAT_CHAIN_ID, GANACHE_CHAIN_ID} from "./ValtzConstants.sol";
 import "./interfaces/IRoleAuthority.sol";
 
 interface IValtzPool {
@@ -101,6 +101,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     error ZeroValidatorDuration();
     error ValidatorRedeemableExceedsMax();
     error TokenDecimalsError();
+    error DemoModeNotAllowed();
 
     /* /////////////////////////////////////////////////////////////////////////
                                     STRUCTS
@@ -180,6 +181,9 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     uint256 public availableRewards;
 
     uint8 internal _decimals;
+
+    /// @notice Whether the pool is in demo mode, which relaxes validation checks for redemption
+    bool public demoMode;
 
     mapping(bytes20 => LibInterval.Interval[]) private _validatorIntervals;
 
@@ -336,6 +340,14 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         emit ValtzPoolStart(_startTime);
     }
 
+    function setDemoMode(bool _demoMode) public onlyOwner {
+        if (block.chainid != FUJI_CHAIN_ID && block.chainid != HARDHAT_CHAIN_ID && block.chainid != GANACHE_CHAIN_ID) {
+            revert DemoModeNotAllowed();
+        }
+
+        demoMode = _demoMode;
+    }
+
     /* /////////////////////////////////////////////////////////////////////////
                                     VIEW
     ///////////////////////////////////////////////////////////////////////// */
@@ -407,28 +419,30 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     ///////////////////////////////////////////////////////////////////////// */
 
     function _validateRedemptionData(ValidationRedemptionData memory data) internal view {
-        if (data.chainId != block.chainid) {
-            revert InvalidChainId(data.chainId);
-        }
+        if (!demoMode) {
+            if (data.chainId != block.chainid) {
+                revert InvalidChainId(data.chainId);
+            }
 
-        if (data.target != address(this)) {
-            revert InvalidTarget(data.target);
-        }
+            if (data.target != address(this)) {
+                revert InvalidTarget(data.target);
+            }
 
-        if (block.timestamp < data.signedAt) {
-            revert InvalidSignedAt(data.signedAt);
-        }
+            if (data.subnetID != subnetID) {
+                revert InvalidSubnetID(data.subnetID);
+            }
 
-        if (block.timestamp > data.signedAt + VALTZ_SIGNATURE_TTL) {
-            revert ExpiredSignedAt(data.signedAt);
-        }
+            if (data.duration != validatorDuration) {
+                revert InvalidDuration(data.duration);
+            }
 
-        if (data.subnetID != subnetID) {
-            revert InvalidSubnetID(data.subnetID);
-        }
+            if (block.timestamp < data.signedAt) {
+                revert InvalidSignedAt(data.signedAt);
+            }
 
-        if (data.duration != validatorDuration) {
-            revert InvalidDuration(data.duration);
+            if (block.timestamp > data.signedAt + VALTZ_SIGNATURE_TTL) {
+                revert ExpiredSignedAt(data.signedAt);
+            }
         }
 
         if (data.redeemer != msg.sender) {
@@ -441,10 +455,10 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
         if (interval.contains(startTime)) {
             revert IntervalContainsPoolStart();
         }
-        if (interval.end > block.timestamp) {
+        if (!demoMode && interval.end > block.timestamp) {
             revert IntervalEndsInFuture();
         }
-        if (interval.overlapsAny(intervals)) {
+        if (!demoMode && interval.overlapsAny(intervals)) {
             revert IntervalOverlap();
         }
         intervals.push(interval);
