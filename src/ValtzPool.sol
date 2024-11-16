@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity 0.8.18;
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -35,6 +35,10 @@ interface IValtzPool {
     }
 
     function initialize(PoolConfig memory config) external;
+
+    function start() external;
+
+    function rewardPool() external view returns (uint256);
 }
 
 contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable2StepUpgradeable {
@@ -67,6 +71,11 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     event ValtzPoolRedeem(
         address indexed redeemer, address indexed receiver, uint256 poolTokenAmount, uint256 tokenAmountWithdrawn
     );
+
+    /**
+     * @dev Emitted when a Valtz pool start is cancelled.
+     */
+    event ValtzPoolCancelStart();
 
     /* /////////////////////////////////////////////////////////////////////////
                                     ERRORS
@@ -101,6 +110,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     error ZeroValidatorDuration();
     error ValidatorRedeemableExceedsMax();
     error TokenDecimalsError();
+    error InsufficientRewardPool(uint256, uint256);
 
     /* /////////////////////////////////////////////////////////////////////////
                                     STRUCTS
@@ -313,7 +323,7 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
      * @notice Starts the ValtzPool.
      * @dev This function can only be called by the owner and only if the pool is not already active.
      */
-    function start() public onlyOwner onlyBeforeActive {
+    function start() external onlyOwner onlyBeforeActive {
         startAt(uint40(block.timestamp));
     }
 
@@ -323,16 +333,20 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
      * @param _startTime The start time to be set for the pool, represented as a uint40.
      */
     function startAt(uint40 _startTime) public onlyOwner onlyBeforeActive {
+        uint256 balance = token.balanceOf(address(this));
+        uint256 needed = rewardPool();
+        if (balance < needed) {
+            revert InsufficientRewardPool(balance, needed);
+        }
         if (started) {
             revert AlreadyActive();
         }
-        started = true;
         if (_startTime < block.timestamp) {
             revert MustStartInCurrentOrFutureBlock();
         }
+
+        started = true;
         startTime = _startTime;
-        availableRewards = calculateReward(max);
-        token.safeTransferFrom(msg.sender, address(this), availableRewards);
         emit ValtzPoolStart(_startTime);
     }
 
@@ -350,9 +364,9 @@ contract ValtzPool is IValtzPool, Initializable, ERC20PermitUpgradeable, Ownable
     }
 
     /**
-     * @notice Retrieves the current reward pool balance.
-     * @dev This function returns the total amount of rewards available in the pool.
-     * @return The current reward pool balance as a uint256.
+     * @notice The reward pool.
+     * @dev This function returns the reward pool size.
+     * @return The current reward pool size as a uint256.
      */
     function rewardPool() public view returns (uint256) {
         return calculateReward(max);

@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.18;
 
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IValtzPool} from "./ValtzPool.sol";
+
 import {VALTZ_SIGNER_ROLE as _VALTZ_SIGNER_ROLE} from "./ValtzConstants.sol";
 
 contract Valtz is AccessControl {
+    using SafeERC20 for IERC20;
+
     address public immutable poolImplementation;
     bytes32 public constant VALTZ_SIGNER_ROLE = _VALTZ_SIGNER_ROLE;
     bytes32 public constant POOL_CREATOR_ADMIN_ROLE = keccak256("POOL_CREATOR_ADMIN_ROLE");
@@ -36,12 +40,17 @@ contract Valtz is AccessControl {
 
     /**
      * @dev Permissionlessly create a new pool with the given configuration.
-     *      Note that this will be removed in production.
      * @param config The configuration of the pool.
      * @return pool The address of the new pool.
      */
     function createPool(IValtzPool.PoolConfig memory config) external returns (address pool) {
         return _createPool(config);
+    }
+
+    function createAndStartPool(IValtzPool.PoolConfig memory config) external returns (address pool) {
+        pool = _createPool(config);
+        IERC20(config.token).safeTransferFrom(msg.sender, pool, IValtzPool(pool).rewardPool());
+        IValtzPool(pool).start();
     }
 
     /**
