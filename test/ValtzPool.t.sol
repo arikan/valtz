@@ -317,4 +317,25 @@ contract ValtzPoolTest is Test {
 
         pool.rescueERC721(mockERC721, tokenId, recipient);
     }
+
+    function test_setDemoMode() public {
+        // Test demo mode on allowed test networks
+        uint256[] memory allowedChains = new uint256[](3);
+        allowedChains[0] = FUJI_CHAIN_ID;
+        allowedChains[1] = HARDHAT_CHAIN_ID;
+        allowedChains[2] = GANACHE_CHAIN_ID;
+
+        for (uint256 i = 0; i < allowedChains.length; i++) {
+            vm.chainId(allowedChains[i]);
+            pool.setDemoMode(true);
+            assertTrue(pool.demoMode());
+            pool.setDemoMode(false);
+            assertFalse(pool.demoMode());
+        }
+
+        // Reverts on mainnet
+        vm.chainId(1);
+        vm.expectRevert(abi.encodeWithSelector(ValtzPool.DemoModeNotAllowed.selector));
+        pool.setDemoMode(true);
+    }
 }
