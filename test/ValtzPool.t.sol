@@ -52,10 +52,10 @@ contract ValtzPoolTest is Test {
     Vm.Wallet public valtzSigner;
     Vm.Wallet public pChainNodeRewardSigner;
 
-    uint256 constant INITIAL_BALANCE = 1000 * 1e18;
-    uint256 constant MAX_DEPOSIT = 1000000 * 1e18;
+    uint256 constant INITIAL_BALANCE = 1000 * 1e13;
+    uint256 constant MAX_DEPOSIT = 1000000 * 1e13;
     uint24 constant BOOST_RATE = 1100000; // 110%
-    uint256 constant VALIDATOR_REDEEMABLE = 100 * 1e18;
+    uint256 constant VALIDATOR_REDEEMABLE = 100 * 1e13;
 
     function getDefaultConfig() internal view returns (IValtzPool.PoolConfig memory) {
         return IValtzPool.PoolConfig({
@@ -97,8 +97,11 @@ contract ValtzPoolTest is Test {
             abi.encode(true)
         );
 
+        // Calculate required rewards for max deposits
+        uint256 requiredRewards = (MAX_DEPOSIT * BOOST_RATE) / pool.BOOST_RATE_PRECISION();
+
         // Mint initial balances
-        token.mint(address(this), 100000000 ether);
+        token.mint(address(this), requiredRewards + MAX_DEPOSIT); // Owner needs enough for rewards + potential deposits
         token.mint(user1, INITIAL_BALANCE);
         token.mint(user2, INITIAL_BALANCE);
 
@@ -198,7 +201,7 @@ contract ValtzPoolTest is Test {
     event ValtzPoolDeposit(address indexed depositor, address indexed receiver, uint256 amount);
 
     function test_deposit() public {
-        uint256 depositAmount = 100 * 1e18;
+        uint256 depositAmount = 100 * 1e13;
 
         vm.expectEmit(true, true, true, true);
         emit ValtzPoolDeposit(user1, user1, depositAmount);
@@ -210,30 +213,85 @@ contract ValtzPoolTest is Test {
         assertEq(pool.balanceOf(user1), depositAmount);
     }
 
-    function test_nonOwnerReverts(address payable user) public {
-        vm.assume(user != pool.owner());
+    function test_deposit_and_redeem_tracking() public {
+        // Enable demo mode to simplify redemption
+        pool.setDemoMode(true);
+
+        uint256 depositAmount1 = 50 * 1e13;
+        uint256 depositAmount2 = 30 * 1e13;
+        uint256 redeemAmount = 20 * 1e13;
+
+        // First deposit
+        vm.startPrank(user1);
+        pool.deposit(depositAmount1, user1);
+        assertEq(pool.totalDeposited(), depositAmount1, "totalDeposited should match first deposit");
+        assertEq(pool.currentDeposits(), depositAmount1, "currentDeposits should match first deposit");
+
+        // Second deposit
+        pool.deposit(depositAmount2, user1);
+        assertEq(pool.totalDeposited(), depositAmount1 + depositAmount2, "totalDeposited should be cumulative");
+        assertEq(pool.currentDeposits(), depositAmount1 + depositAmount2, "currentDeposits should be sum of deposits");
+
+        vm.warp(block.timestamp + 33 days);
+
+        // Create redemption data
+        ValtzPool.ValidationRedemptionData memory data = ValtzPool.ValidationRedemptionData({
+            chainId: block.chainid,
+            target: address(pool),
+            signedAt: uint40(block.timestamp),
+            nodeID: bytes20(0),
+            subnetID: bytes32(0),
+            redeemer: user1,
+            duration: pool.validatorDuration(),
+            start: uint40(block.timestamp - 31 days),
+            end: uint40(block.timestamp)
+        });
+
+        bytes memory valtzSignedData = abi.encode(data);
+        bytes32 hashed = ECDSA.toEthSignedMessageHash(valtzSignedData);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(valtzSigner.privateKey, hashed);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // Redeem
+        pool.redeem(redeemAmount, user1, valtzSignedData, signature);
+        vm.stopPrank();
+
+        // Check that totalDeposited remains unchanged after redemption
+        assertEq(
+            pool.totalDeposited(), depositAmount1 + depositAmount2, "totalDeposited should not change after redemption"
+        );
+        // Check that currentDeposits is reduced by the redeemed amount
+        assertEq(
+            pool.currentDeposits(),
+            depositAmount1 + depositAmount2 - redeemAmount,
+            "currentDeposits should decrease after redemption"
+        );
+    }
+
+    function test_nonOwnerReverts(address payable nonOwner) public {
+        vm.assume(nonOwner != pool.owner());
 
         bytes memory unauthorized = "Ownable: caller is not the owner";
 
-        vm.startPrank(user);
+        vm.startPrank(nonOwner);
         vm.expectRevert(unauthorized);
         pool.start();
 
         vm.expectRevert(unauthorized);
-        pool.rescueERC20(IERC20(address(0xaa)), user, 1);
+        pool.rescueERC20(IERC20(address(0xaa)), nonOwner, 1);
 
         vm.expectRevert(unauthorized);
-        pool.rescueNative(user, 1);
+        pool.rescueNative(nonOwner, 1);
 
         vm.expectRevert(unauthorized);
-        pool.rescueERC1155(IERC1155(address(0xaa)), 1, user, 1);
+        pool.rescueERC1155(IERC1155(address(0xaa)), 1, nonOwner, 1);
 
         vm.expectRevert(unauthorized);
-        pool.rescueERC721(IERC721(address(0xaa)), 1, user);
+        pool.rescueERC721(IERC721(address(0xaa)), 1, nonOwner);
     }
 
     function test_rescueERC20_primaryToken() public {
-        uint256 rescueAmount = 100 * 1e18;
+        uint256 rescueAmount = 100 * 1e13;
 
         // Try to rescue the primary token (should fail)
         vm.prank(owner);
@@ -261,7 +319,7 @@ contract ValtzPoolTest is Test {
         MockERC20 rescueToken = new MockERC20();
 
         // Mint some tokens to the pool
-        uint256 rescueAmount = 100 * 1e18;
+        uint256 rescueAmount = 100 * 1e13;
         rescueToken.mint(address(pool), rescueAmount);
 
         // Rescue the token

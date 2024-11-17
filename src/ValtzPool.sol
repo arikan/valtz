@@ -75,7 +75,7 @@ contract ValtzPool is IValtzPool, DemoMode, Initializable, ERC20PermitUpgradeabl
     ///////////////////////////////////////////////////////////////////////// */
 
     error RedeemAmountTooHigh(uint256);
-    error RedeemAmountExceedsTotalDeposited(uint256);
+    error RedeemAmountExceedsCurrentDeposits(uint256);
     error RewardAmountExceedsAvailableRewards(uint256);
     error InvalidSignedAt(uint40);
     error ExpiredSignedAt(uint40);
@@ -175,8 +175,11 @@ contract ValtzPool is IValtzPool, DemoMode, Initializable, ERC20PermitUpgradeabl
     /// @notice The time at which the pool starts accepting deposits
     uint40 public startTime;
 
-    /// @notice The total amount staked
+    /// @notice The total amount cumulatively deposited since start
     uint256 public totalDeposited;
+
+    /// @notice The current amount deposited
+    uint256 public currentDeposits;
 
     /// @notice The total amount staked
     uint256 public availableRewards;
@@ -259,6 +262,7 @@ contract ValtzPool is IValtzPool, DemoMode, Initializable, ERC20PermitUpgradeabl
 
         // Effects
         totalDeposited += tokens;
+        currentDeposits += tokens;
         _mint(receiver, tokens);
 
         // Interactions
@@ -283,8 +287,8 @@ contract ValtzPool is IValtzPool, DemoMode, Initializable, ERC20PermitUpgradeabl
         if (amount > validatorRedeemable) {
             revert RedeemAmountTooHigh(amount);
         }
-        if (amount > totalDeposited) {
-            revert RedeemAmountExceedsTotalDeposited(amount);
+        if (amount > currentDeposits) {
+            revert RedeemAmountExceedsCurrentDeposits(amount);
         }
 
         if (receiver == address(0)) {
@@ -303,7 +307,7 @@ contract ValtzPool is IValtzPool, DemoMode, Initializable, ERC20PermitUpgradeabl
 
         _consumeInterval(data.nodeID, LibInterval.Interval(data.start, data.end));
 
-        totalDeposited -= amount;
+        currentDeposits -= amount;
         _burn(msg.sender, amount);
         uint256 rewardAmount = calculateReward(amount);
 
@@ -386,7 +390,7 @@ contract ValtzPool is IValtzPool, DemoMode, Initializable, ERC20PermitUpgradeabl
      * @return The maximum deposit amount as a uint256.
      */
     function maxDeposit() public view returns (uint256) {
-        return max > totalDeposited ? max - totalDeposited : 0;
+        return max > currentDeposits ? max - currentDeposits : 0;
     }
 
     /**
@@ -462,14 +466,16 @@ contract ValtzPool is IValtzPool, DemoMode, Initializable, ERC20PermitUpgradeabl
 
     function _consumeInterval(bytes20 nodeID, LibInterval.Interval memory interval) internal {
         LibInterval.Interval[] storage intervals = _validatorIntervals[nodeID];
-        if (interval.contains(startTime)) {
-            revert IntervalContainsPoolStart();
-        }
-        if (!demoMode && interval.end > block.timestamp) {
-            revert IntervalEndsInFuture();
-        }
-        if (!demoMode && interval.overlapsAny(intervals)) {
-            revert IntervalOverlap();
+        if (!demoMode) {
+            if (interval.contains(startTime)) {
+                revert IntervalContainsPoolStart();
+            }
+            if (!demoMode && interval.end > block.timestamp) {
+                revert IntervalEndsInFuture();
+            }
+            if (!demoMode && interval.overlapsAny(intervals)) {
+                revert IntervalOverlap();
+            }
         }
         intervals.push(interval);
     }

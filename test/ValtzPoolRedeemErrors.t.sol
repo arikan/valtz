@@ -17,7 +17,7 @@ contract ValtzPoolRedeemErrorsTest is ValtzPoolRedeemTestBase {
         pool.redeem(VALIDATOR_REDEEMABLE + 1, user2, abi.encode(data), signature);
     }
 
-    function test_revert_RedeemAmountExceedsTotalDeposited() public {
+    function test_revert_RedeemAmountExceedsCurrentDeposits() public {
         uint256 depositAmount = 50 * 1e18;
         (uint40 start, uint40 end) = _setupRedemption(user1, depositAmount);
 
@@ -27,7 +27,9 @@ contract ValtzPoolRedeemErrorsTest is ValtzPoolRedeemTestBase {
         bytes memory signature = _signValidationData(data, valtzSigner.privateKey);
 
         vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSelector(ValtzPool.RedeemAmountExceedsTotalDeposited.selector, depositAmount + 1));
+        vm.expectRevert(
+            abi.encodeWithSelector(ValtzPool.RedeemAmountExceedsCurrentDeposits.selector, depositAmount + 1)
+        );
         pool.redeem(depositAmount + 1, user2, abi.encode(data), signature);
     }
 
