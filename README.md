@@ -13,7 +13,7 @@ Valtz is a smart contract protocol for creation of validation futures, enabling 
 
 Valtz protocol runs on Ethereum Virtual Machine (EVM) and offers a two-sided marketplace:
 
-- **Blockchain teams** create a futures pool to reward validation commitments, thereby strengthening their chain’s validator base and security in line with their growth.
+- **Blockchain teams** create a futures pool to reward validation commitments, thereby strengthening their chain's validator base and security in line with their growth.
 
 - **Validators** commit future validation to blockchains by depositing validation tokens and submitting their current proof of validation. This process mints future validation tokens to receive rewards. Upon completing their validation and depositing their future validation tokens, validators claim boost rewards, which are on top of normal staking rewards, incentivizing their participation.
 
@@ -23,11 +23,11 @@ Similar to traditional commodity futures, Valtz validation futures are tradeable
 
 ![Valtz Smart Contract Overview Image](notes/valtz-smart-contract-diagram.png)
 
-The Valtz protocol operates as a smart contract, streamlining how chains and validators commit to long-term validation. Here’s how it works:
+The Valtz protocol operates as a smart contract, streamlining how chains and validators commit to long-term validation. Here's how it works:
 
-1. A chain team creates a pool by depositing some of their staking tokens as rewards. They also define terms such as the required duration for validation, start and end times, and the reward rates for validators’ commitments.
+1. A chain team creates a pool by depositing some of their staking tokens as rewards. They also define terms such as the required duration for validation, start and end times, and the reward rates for validators' commitments.
 
-2. Users who hold the chain’s native tokens—whether from an airdrop or the market—can deposit these tokens into the pool. In return, they mint a futures token for that chain.
+2. Users who hold the chain's native tokens—whether from an airdrop or the market—can deposit these tokens into the pool. In return, they mint a futures token for that chain.
 
 3. Users can trade these futures tokens on the open market, which enables price discovery and hedging risks.
 
@@ -99,16 +99,27 @@ The contract also includes various view functions for calculating rewards, check
 
 ## Development
 
+### Dependencies
+
+- [Foundry](https://github.com/foundry-rs/foundry)
+- [Just](https://github.com/casey/just)
+
 ### Build
 
 ```sh
-forge build
+just build
 ```
 
 ### Test
 
 ```sh
-forge test
+just test
+```
+
+### Watch Tests
+
+```sh
+just watch
 ```
 
 ### Local Anvil Deployment
@@ -116,42 +127,38 @@ forge test
 Start Anvil:
 
 ```sh
-anvil --chain-id 1337 # Chain ID 1337 is the default local chain ID
+just anvil
 ```
 
-Using default anvil account to deploy Valtz, OpenToken, and mint OpenToken. Note the deploy addresses.
+Deploy contracts locally:
 
 ```sh
-forge script script/Valtz.s.sol --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+# Deploy Valtz with signer
+just deploy-valtz-local [valtz_signer_address]
 
-## Deploy OpenToken with dev defaults with optional mint recipient
-RECIPIENT=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 \
-forge script script/OpenToken.s.sol --sig "dev()" --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+# Deploy test token with optional recipient
+just deploy-token-local [recipient_address]
 
-## Add a signer
-forge script script/Valtz.s.sol --sig "addSigner(address,address)" 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720 --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+# Full deployment sequence (Valtz + test token)
+just deploy-local [valtz_signer_address] [recipient_address]
 ```
 
 ### Live Deploy
 
-```sh
-forge script script/Valtz.s.sol --rpc-url fuji --broadcast --verify
-# + your private key, account, etc
-```
-
-Test token
+Deploy to Fuji testnet:
 
 ```sh
-TOKEN_NAME="ValtzTest" TOKEN_SYMBOL="VLTZ-T" \
-forge script script/OpenToken.s.sol --rpc-url fuji --broadcast --verify
-# + your private key, account, etc
+# Deploy Valtz with signer
+PRIVATE_KEY=<your_key> just deploy-valtz-fuji <valtz_signer_address>
+
+# Deploy test token
+PRIVATE_KEY=<your_key> just deploy-token-fuji [token_name] [token_symbol]
 ```
 
 ### Generate ABIs
 
 ```sh
-forge inspect Valtz abi
-forge inspect ValtzPool abi
+just generate-abi <contract_name>
 ```
 
 On Avalanche Fuji, `OpenToken` instance `VLTZ-T` is deployed to `0xE23FB6cACd6A07B47D3d208844613D12b0C24856`.

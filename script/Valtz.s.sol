@@ -11,19 +11,26 @@ import "forge-std/console2.sol";
 contract ValtzDeployScript is Script {
     function setUp() public {}
 
-    function run() public returns (Valtz valtz) {
-        vm.startBroadcast();
-
+    function _deployValtz(address owner) private returns (Valtz valtz) {
         address roleAuthorityAddress = vm.computeCreateAddress(msg.sender, vm.getNonce(msg.sender) + 1);
-
         ValtzPool impl = new ValtzPool(IRoleAuthority(roleAuthorityAddress));
-
-        valtz = new Valtz(msg.sender, address(impl), true);
+        valtz = new Valtz(owner, address(impl), true);
 
         if (address(valtz) != roleAuthorityAddress) {
             revert("Address mismatch");
         }
+    }
 
+    function run() public returns (Valtz valtz) {
+        vm.startBroadcast();
+        valtz = _deployValtz(msg.sender);
+        vm.stopBroadcast();
+    }
+
+    function runWithSigner(address signer) public returns (Valtz valtz) {
+        vm.startBroadcast();
+        valtz = _deployValtz(msg.sender);
+        valtz.grantRole(valtz.VALTZ_SIGNER_ROLE(), signer);
         vm.stopBroadcast();
     }
 
