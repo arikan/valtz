@@ -4,10 +4,10 @@ Valtz is a smart contract protocol for creation of validation futures, enabling 
 
 ## Deployments
 
-| Network                | Address                                                                                                                       |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Avalanche Fuji Testnet | [0xB837C4B5AaFd0e6869DeD589f306149FC037E55D](https://testnet.snowtrace.io/address/0xB837C4B5AaFd0e6869DeD589f306149FC037E55D) |
-| Avalanche Mainnet      | Coming soon                                                                                                                   |
+| Contract            | Network | Address                                                                                                                       |
+| ------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Valtz               | Fuji    | [0xDE8AFdDA47133e3a45A67F714Fc877d36D35c8B9](https://testnet.snowtrace.io/address/0xDE8AFdDA47133e3a45A67F714Fc877d36D35c8B9) |
+| `VLTZ-T` Test Token | Fuji    | [0xE23FB6cACd6A07B47D3d208844613D12b0C24856](https://testnet.snowtrace.io/address/0xE23FB6cACd6A07B47D3d208844613D12b0C24856) |
 
 ## 🌟 Introduction
 
@@ -160,5 +160,3 @@ PRIVATE_KEY=<your_key> just deploy-token-fuji [token_name] [token_symbol]
 ```sh
 just generate-abi <contract_name>
 ```
-
-On Avalanche Fuji, `OpenToken` instance `VLTZ-T` is deployed to `0xE23FB6cACd6A07B47D3d208844613D12b0C24856`.
