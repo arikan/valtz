@@ -100,6 +100,59 @@ contract ValtzTest is Test {
         valtz.poolsBySubnet(bytes32(uint256(999)), 0);
     }
 
+    function testPoolsArray() public {
+        // Initially empty array should revert on any access
+        vm.expectRevert();
+        valtz.pools(0);
+
+        // Create some pools
+        address pool1 = valtz.createPool(poolConfig);
+        address pool2 = valtz.createPool(poolConfig);
+
+        // Check pools array is updated correctly
+        assertEq(valtz.pools(0), pool1, "First pool should match");
+        assertEq(valtz.pools(1), pool2, "Second pool should match");
+        vm.expectRevert(); // Should revert when accessing index 2
+        valtz.pools(2);
+    }
+
+    function testPoolCount() public {
+        // Initially no pools
+        assertEq(valtz.poolCount(), 0, "Initial pool count should be zero");
+
+        // Create some pools
+        valtz.createPool(poolConfig);
+        assertEq(valtz.poolCount(), 1, "Pool count should be 1 after first creation");
+
+        valtz.createPool(poolConfig);
+        assertEq(valtz.poolCount(), 2, "Pool count should be 2 after second creation");
+
+        valtz.createPool(poolConfig);
+        assertEq(valtz.poolCount(), 3, "Pool count should be 3 after third creation");
+    }
+
+    function testAllPools() public {
+        // Initially empty array
+        address[] memory initialPools = valtz.allPools();
+        assertEq(initialPools.length, 0, "Initial pools array should be empty");
+
+        // Create some pools
+        address pool1 = valtz.createPool(poolConfig);
+        address pool2 = valtz.createPool(poolConfig);
+        address pool3 = valtz.createPool(poolConfig);
+
+        // Get all pools
+        address[] memory allPools = valtz.allPools();
+
+        // Check array length
+        assertEq(allPools.length, 3, "Should have 3 pools");
+
+        // Check pool addresses match
+        assertEq(allPools[0], pool1, "First pool should match");
+        assertEq(allPools[1], pool2, "Second pool should match");
+        assertEq(allPools[2], pool3, "Third pool should match");
+    }
+
     function testAdminGrantRole() public {
         address user = address(0xab);
         vm.startPrank(defaultAdmin);

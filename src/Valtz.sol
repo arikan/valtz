@@ -1,20 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/proxy/Clones.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {IValtzPool} from "./ValtzPool.sol";
 import {VALTZ_SIGNER_ROLE as _VALTZ_SIGNER_ROLE} from "./ValtzConstants.sol";
-import "./lib/DemoMode.sol";
+import {DemoMode} from "./lib/DemoMode.sol";
 
 contract Valtz is AccessControl, DemoMode {
+    /// @notice The address of the implementation contract used for creating new pools
+    /// @dev This is immutable and set during contract deployment
     address public immutable poolImplementation;
+
+    /// @notice Role identifier for Valtz signers
     bytes32 public constant VALTZ_SIGNER_ROLE = _VALTZ_SIGNER_ROLE;
+
+    /// @notice Role identifier for administrators who can create pools
     bytes32 public constant POOL_CREATOR_ADMIN_ROLE = keccak256("POOL_CREATOR_ADMIN_ROLE");
 
-    // Registry of pools by subnetId
+    /// @notice Array containing addresses of all created pools
+    /// @dev Used to track and iterate over all pools in the system
+    address[] public pools;
+
+    /// @notice Mapping of subnet IDs to arrays of pool addresses
+    /// @dev Allows lookup of all pools associated with a specific subnet
+    /// @dev Key is the subnet ID, value is an array of pool addresses
     mapping(bytes32 => address[]) public poolsBySubnet;
 
     /**
@@ -56,6 +68,7 @@ contract Valtz is AccessControl, DemoMode {
         IValtzPool(pool).initialize(config, demoMode);
 
         // Add pool to registry
+        pools.push(pool);
         poolsBySubnet[config.subnetID].push(pool);
 
         emit CreatePool(pool, config.subnetID, msg.sender);
@@ -68,5 +81,23 @@ contract Valtz is AccessControl, DemoMode {
      */
     function setDemoMode(bool _demoMode) public onlyRole(DEFAULT_ADMIN_ROLE) {
         _setDemoMode(_demoMode);
+    }
+
+    /**
+     * @notice Returns the total number of pools created
+     * @dev Gets the length of the pools array
+     * @return uint256 The total count of all pools
+     */
+    function poolCount() external view returns (uint256) {
+        return pools.length;
+    }
+
+    /**
+     * @notice Returns an array of all pool addresses
+     * @dev Returns the complete pools array
+     * @return address[] An array containing the addresses of all created pools
+     */
+    function allPools() external view returns (address[] memory) {
+        return pools;
     }
 }
