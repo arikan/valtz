@@ -6,7 +6,7 @@ Valtz is a smart contract protocol for creation of validation futures, enabling 
 
 | Contract            | Network | Address                                                                                                                       |
 | ------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Valtz               | Fuji    | [0xDE8AFdDA47133e3a45A67F714Fc877d36D35c8B9](https://testnet.snowtrace.io/address/0xDE8AFdDA47133e3a45A67F714Fc877d36D35c8B9) |
+| Valtz               | Fuji    | [0x755301be9dbbb28ac6ffe0f5684491ca0141c886](https://testnet.snowtrace.io/address/0x755301be9dbbb28ac6ffe0f5684491ca0141c886) |
 | `VLTZ-T` Test Token | Fuji    | [0xE23FB6cACd6A07B47D3d208844613D12b0C24856](https://testnet.snowtrace.io/address/0xE23FB6cACd6A07B47D3d208844613D12b0C24856) |
 
 ## 🌟 Introduction
