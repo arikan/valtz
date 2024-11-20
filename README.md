@@ -9,6 +9,8 @@ Valtz is a smart contract protocol for creation of validation futures, enabling 
 | Valtz               | Fuji    | [0x1b53093c2ad2649d048efc070ed13df6bd2b896a](https://testnet.snowtrace.io/address/0x1b53093c2ad2649d048efc070ed13df6bd2b896a) |
 | `VLTZ-T` Test Token | Fuji    | [0xE23FB6cACd6A07B47D3d208844613D12b0C24856](https://testnet.snowtrace.io/address/0xE23FB6cACd6A07B47D3d208844613D12b0C24856) |
 
+Valtz address on Fuji is `0x4fE1e2fDfA12CEDEb75C459Be7e38fBA67F1E544`.
+
 ## 🌟 Introduction
 
 Valtz protocol runs on Ethereum Virtual Machine (EVM) and offers a two-sided marketplace:
@@ -153,6 +155,26 @@ PRIVATE_KEY=<your_key> just deploy-valtz-fuji <valtz_signer_address>
 
 # Deploy test token
 PRIVATE_KEY=<your_key> just deploy-token-fuji [token_name] [token_symbol]
+```
+
+### Managing Signers
+
+Add or remove signers from a Valtz deployment:
+
+```sh
+# Local development
+just add-signer-local <valtz_contract_address> <signer_address>
+just remove-signer-local <valtz_contract_address> <signer_address>
+
+# Fuji testnet
+PRIVATE_KEY=<your_key> just add-signer-fuji <valtz_contract_address> <signer_address>
+PRIVATE_KEY=<your_key> just remove-signer-fuji <valtz_contract_address> <signer_address>
+```
+
+For example, to add a signer to the Fuji deployment:
+
+```sh
+PRIVATE_KEY=<your_key> just add-signer-fuji 0x4fE1e2fDfA12CEDEb75C459Be7e38fBA67F1E544 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720
 ```
 
 ### Generate ABIs

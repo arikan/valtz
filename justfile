@@ -39,12 +39,31 @@ deploy-local valtz_signer_addr="0xa0Ee7A142d267C1f36714E4a8F75612F20a79720" reci
     @just deploy-token-local {{recipient}}
 
 # Deploy to Fuji testnet with signer
-# Usage: PRIVATE_KEY=<your_key> just deploy-fuji-with-signer <valtz_signer_address>
+# Usage: just deploy-fuji-with-signer <valtz_signer_address>
 deploy-valtz-fuji valtz_signer_addr:
     forge script script/Valtz.s.sol --sig "runWithSigner(address)" {{valtz_signer_addr}} --rpc-url fuji --broadcast --verify --private-key $PRIVATE_KEY
 
 # Deploy test token to Fuji
-# Usage: PRIVATE_KEY=<your_key> just deploy-token-fuji [token_name] [token_symbol]
+# Usage: just deploy-token-fuji [token_name] [token_symbol]
 deploy-token-fuji token_name="ValtzTest" token_symbol="VLTZ-T":
     TOKEN_NAME={{token_name}} TOKEN_SYMBOL={{token_symbol}} forge script script/OpenToken.s.sol --rpc-url fuji --broadcast --verify --private-key $PRIVATE_KEY
 
+# Add a signer to local Valtz deployment
+# Usage: just add-signer-local <valtz_contract_address> <signer_address>
+add-signer-local valtz_addr signer_addr:
+    forge script script/Valtz.s.sol --sig "addSigner(address,address)" {{valtz_addr}} {{signer_addr}} --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+
+# Add a signer to Fuji testnet Valtz deployment
+# Usage: just add-signer-fuji <valtz_contract_address> <signer_address>
+add-signer-fuji valtz_addr signer_addr:
+    forge script script/Valtz.s.sol --sig "addSigner(address,address)" {{valtz_addr}} {{signer_addr}} --rpc-url fuji --broadcast --verify --private-key $PRIVATE_KEY
+
+# Remove a signer from local Valtz deployment
+# Usage: just remove-signer-local <valtz_contract_address> <signer_address>
+remove-signer-local valtz_addr signer_addr:
+    forge script script/Valtz.s.sol --sig "revokeSigner(address,address)" {{valtz_addr}} {{signer_addr}} --rpc-url localhost --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+
+# Remove a signer from Fuji testnet Valtz deployment
+# Usage: just remove-signer-fuji <valtz_contract_address> <signer_address>
+remove-signer-fuji valtz_addr signer_addr:
+    forge script script/Valtz.s.sol --sig "revokeSigner(address,address)" {{valtz_addr}} {{signer_addr}} --rpc-url fuji --broadcast --verify --private-key $PRIVATE_KEY
